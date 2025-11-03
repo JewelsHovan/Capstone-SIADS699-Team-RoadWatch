@@ -26,8 +26,8 @@ import sys
 import warnings
 warnings.filterwarnings('ignore')
 
-# Add parent directory to path for data_engineering imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add project root to path for data_engineering imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 def load_crashes(crash_file, cities=None, sample_size=None):
