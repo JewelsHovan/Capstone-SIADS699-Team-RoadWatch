@@ -248,6 +248,9 @@ def add_workzone_proximity_features(crashes_gdf, workzones_gdf, verbose=True):
     # Convert back to DataFrame
     result_df = pd.DataFrame(crashes_with_dist.drop(columns=['geometry'], errors='ignore'))
 
+    # Drop index_right to avoid conflicts with subsequent spatial joins
+    result_df = result_df.drop(columns=['index_right'], errors='ignore')
+
     return result_df
 
 

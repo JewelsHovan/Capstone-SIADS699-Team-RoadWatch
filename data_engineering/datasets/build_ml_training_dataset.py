@@ -60,6 +60,29 @@ def load_crashes(crash_file, cities=None, sample_size=None):
     print(f'\nDate range: {crashes_df["Start_Time"].min()} to {crashes_df["Start_Time"].max()}')
     print(f'Years: {sorted(crashes_df["year"].unique())}')
 
+    # Create target variable BEFORE removing Severity
+    print(f'\n📊 Creating target variable (high_severity)...')
+    if 'Severity' in crashes_df.columns:
+        crashes_df['high_severity'] = (crashes_df['Severity'] >= 3).astype(int)
+        high_sev_count = crashes_df['high_severity'].sum()
+        high_sev_pct = high_sev_count / len(crashes_df) * 100
+        print(f'   ✓ Created target: {high_sev_count:,} high severity ({high_sev_pct:.1f}%)')
+    else:
+        print('   ⚠️  Severity column not found - cannot create target')
+
+    # Remove data leakage features
+    print(f'\n🚨 Removing data leakage features...')
+    LEAKAGE_FEATURES = ['Severity', 'End_Time', 'End_Lat', 'End_Lng']
+
+    features_to_remove = [f for f in LEAKAGE_FEATURES if f in crashes_df.columns]
+
+    if features_to_remove:
+        print(f'   Removing: {", ".join(features_to_remove)}')
+        crashes_df = crashes_df.drop(columns=features_to_remove)
+        print(f'   ✓ Removed {len(features_to_remove)} leakage features')
+    else:
+        print(f'   ✓ No leakage features found (already clean)')
+
     # Convert to GeoDataFrame
     crashes_gdf = gpd.GeoDataFrame(
         crashes_df,
@@ -96,7 +119,8 @@ def extract_road_features_batch(crashes_gdf, batch_size=1000, buffer_dist=50):
 
     all_results = []
 
-    for city in cities.index[:5]:  # Process top 5 cities for now
+    # Process top 10 cities (covers >95% of crashes)
+    for city in cities.index[:10]:
         print(f'\n--- Processing {city} ---')
         city_crashes = crashes_gdf[crashes_gdf['City'] == city].copy()
 
@@ -110,7 +134,7 @@ def extract_road_features_batch(crashes_gdf, batch_size=1000, buffer_dist=50):
         lat_range = city_crashes.geometry.y.max() - city_crashes.geometry.y.min()
         lon_range = city_crashes.geometry.x.max() - city_crashes.geometry.x.min()
         max_range = max(lat_range, lon_range) * 111000  # Convert degrees to meters (approx)
-        dist = min(max_range / 2, 5000)  # Cap at 5km radius
+        dist = min(max_range / 2 + 1000, 15000)  # Add 1km buffer, cap at 15km radius
 
         print(f'  Downloading road network (center: {center_lat:.4f}, {center_lon:.4f}, radius: {dist:.0f}m)...')
 
@@ -132,18 +156,14 @@ def extract_road_features_batch(crashes_gdf, batch_size=1000, buffer_dist=50):
             edges_utm = edges_gdf.to_crs('EPSG:3083')
             city_crashes_utm = city_crashes.to_crs('EPSG:3083')
 
-            # Create buffer around roads
-            edges_utm['buffer'] = edges_utm.geometry.buffer(buffer_dist)
-            edges_buffer = edges_utm.set_geometry('buffer')
-
-            # Spatial join
+            # Spatial join - use sjoin_nearest to avoid duplicates
             print(f'  Matching crashes to road segments...')
-            crashes_with_roads = gpd.sjoin(
-                city_crashes_utm,
-                edges_buffer[['buffer', 'edge_id', 'highway', 'name', 'lanes',
-                             'maxspeed', 'oneway', 'bridge', 'tunnel']],
+            crashes_with_roads = city_crashes_utm.sjoin_nearest(
+                edges_utm[['geometry', 'edge_id', 'highway', 'name', 'lanes',
+                          'maxspeed', 'oneway', 'bridge', 'tunnel']],
                 how='left',
-                predicate='within'
+                max_distance=buffer_dist,
+                distance_col='distance_to_road_m'
             )
 
             # Calculate road features
@@ -173,7 +193,8 @@ def extract_road_features_batch(crashes_gdf, batch_size=1000, buffer_dist=50):
                 except:
                     return np.nan
 
-            crashes_with_roads['speed_limit'] = crashes_with_roads['maxspeed'].apply(parse_speed)
+            # Rename to avoid conflicts with HPMS data
+            crashes_with_roads['osmnx_speed_limit'] = crashes_with_roads['maxspeed'].apply(parse_speed)
 
             # Binary features
             crashes_with_roads['is_oneway'] = crashes_with_roads['oneway'].fillna(False).astype(int)
@@ -182,7 +203,10 @@ def extract_road_features_batch(crashes_gdf, batch_size=1000, buffer_dist=50):
             crashes_with_roads['road_name'] = crashes_with_roads['name']
 
             # Drop geometry for efficiency
-            result_df = pd.DataFrame(crashes_with_roads.drop(columns=['geometry', 'buffer'], errors='ignore'))
+            result_df = pd.DataFrame(crashes_with_roads.drop(columns=['geometry'], errors='ignore'))
+
+            # Drop index_right to avoid conflicts with subsequent spatial joins
+            result_df = result_df.drop(columns=['index_right'], errors='ignore')
 
             all_results.append(result_df)
 
@@ -203,10 +227,93 @@ def extract_road_features_batch(crashes_gdf, batch_size=1000, buffer_dist=50):
         return None
 
 
+def integrate_hpms_road_characteristics(crashes_df, hpms_file):
+    """Integrate HPMS road characteristics (speed limits, lanes, IRI)"""
+    print(f'\n{"="*80}')
+    print('STEP 3: INTEGRATING HPMS ROAD CHARACTERISTICS')
+    print(f'{"="*80}')
+
+    try:
+        from config.paths import TEXAS_RAW
+
+        # Check if HPMS file exists
+        if hpms_file is None:
+            hpms_file = TEXAS_RAW / 'roadway_characteristics' / 'hpms_texas_2023.gpkg'
+
+        if not Path(hpms_file).exists():
+            print(f'\n⚠️  HPMS file not found: {hpms_file}')
+            print('   Skipping HPMS integration (speed limits, lanes, IRI will be missing)')
+            print('   Download HPMS data and run: python data_engineering/download/download_hpms_texas.py')
+            return crashes_df
+
+        print(f'\nLoading HPMS data from {hpms_file}...')
+        hpms_gdf = gpd.read_file(hpms_file)
+        print(f'  ✓ Loaded {len(hpms_gdf):,} road segments')
+
+        # Convert to GeoDataFrame if needed
+        if not isinstance(crashes_df, gpd.GeoDataFrame):
+            crashes_df['geometry'] = [Point(lon, lat) for lon, lat in
+                                       zip(crashes_df['Start_Lng'], crashes_df['Start_Lat'])]
+            crashes_gdf = gpd.GeoDataFrame(crashes_df, geometry='geometry', crs='EPSG:4326')
+        else:
+            crashes_gdf = crashes_df
+
+        # Convert to UTM for accurate distance calculations
+        print('  Performing spatial join (nearest road segment within 100m)...')
+        crashes_utm = crashes_gdf.to_crs('EPSG:3083')
+        hpms_utm = hpms_gdf.to_crs('EPSG:3083')
+
+        # Spatial join to nearest road segment
+        crashes_with_hpms = crashes_utm.sjoin_nearest(
+            hpms_utm[['geometry', 'speed_limit', 'through_lanes', 'iri', 'f_system',
+                     'nhs', 'aadt', 'median_type', 'shoulder_type', 'lane_width']],
+            how='left',
+            max_distance=100,  # Only match if within 100m
+            distance_col='hpms_distance_m'
+        )
+
+        # Rename columns for clarity
+        crashes_with_hpms = crashes_with_hpms.rename(columns={
+            'speed_limit': 'hpms_speed_limit',
+            'through_lanes': 'hpms_lanes',
+            'iri': 'hpms_iri',
+            'f_system': 'hpms_functional_class',
+            'nhs': 'hpms_nhs',
+            'aadt': 'hpms_aadt',
+            'median_type': 'hpms_median_type',
+            'shoulder_type': 'hpms_shoulder_type',
+            'lane_width': 'hpms_lane_width'
+        })
+
+        # Convert back to DataFrame
+        result_df = pd.DataFrame(crashes_with_hpms.drop(columns=['geometry'], errors='ignore'))
+
+        # Drop index_right to avoid conflicts with subsequent spatial joins
+        result_df = result_df.drop(columns=['index_right'], errors='ignore')
+
+        # Print matching stats
+        matched = result_df['hpms_speed_limit'].notna().sum()
+        print(f'  ✓ Matched {matched:,} / {len(result_df):,} crashes ({matched/len(result_df)*100:.1f}%)')
+        print(f'  Mean distance to road: {result_df["hpms_distance_m"].mean():.1f}m')
+
+        # Feature completeness
+        print('\n  HPMS Feature Completeness:')
+        print(f'    Speed limits: {result_df["hpms_speed_limit"].notna().sum():,} ({result_df["hpms_speed_limit"].notna().mean()*100:.1f}%)')
+        print(f'    Lane counts:  {result_df["hpms_lanes"].notna().sum():,} ({result_df["hpms_lanes"].notna().mean()*100:.1f}%)')
+        print(f'    IRI (pavement): {result_df["hpms_iri"].notna().sum():,} ({result_df["hpms_iri"].notna().mean()*100:.1f}%)')
+
+        return result_df
+
+    except Exception as e:
+        print(f'\n⚠️  HPMS integration failed: {e}')
+        print(f'   Continuing without HPMS features...')
+        return crashes_df
+
+
 def integrate_work_zones(crashes_df, workzone_file):
     """Integrate work zone proximity features"""
     print(f'\n{"="*80}')
-    print('STEP 3: INTEGRATING WORK ZONE FEATURES')
+    print('STEP 4: INTEGRATING WORK ZONE FEATURES')
     print(f'{"="*80}')
 
     try:
@@ -242,10 +349,37 @@ def integrate_work_zones(crashes_df, workzone_file):
         return crashes_df
 
 
+def add_lighting_conditions(crashes_df):
+    """Add lighting condition features using sunrise/sunset API"""
+    print(f'\n{"="*80}')
+    print('STEP 5: ADDING LIGHTING CONDITION FEATURES')
+    print(f'{"="*80}')
+
+    try:
+        from data_engineering.features.add_lighting_conditions import add_lighting_features
+
+        print('\nAdding sunrise/sunset based lighting features...')
+        crashes_with_lighting = add_lighting_features(
+            crashes_df,
+            time_col='Start_Time',
+            lat_col='Start_Lat',
+            lon_col='Start_Lng',
+            verbose=True,
+            rate_limit_delay=0.05  # Faster rate limit (20 requests/sec)
+        )
+
+        return crashes_with_lighting
+
+    except Exception as e:
+        print(f'\n⚠️  Lighting features failed: {e}')
+        print(f'   Continuing without lighting features...')
+        return crashes_df
+
+
 def attach_aadt_traffic(crashes_df, aadt_file):
     """Attach AADT traffic data using nearest station"""
     print(f'\n{"="*80}')
-    print('STEP 4: ATTACHING AADT TRAFFIC DATA')
+    print('STEP 6: ATTACHING AADT TRAFFIC DATA')
     print(f'{"="*80}')
 
     print(f'\nLoading AADT data from {aadt_file}...')
@@ -277,6 +411,9 @@ def attach_aadt_traffic(crashes_df, aadt_file):
     # Convert back to regular DataFrame
     result_df = pd.DataFrame(crashes_with_aadt.drop(columns=['geometry'], errors='ignore'))
 
+    # Drop index_right to avoid conflicts with subsequent spatial joins
+    result_df = result_df.drop(columns=['index_right'], errors='ignore')
+
     matched = result_df['aadt'].notna().sum()
     print(f'  ✓ Matched {matched:,} / {len(result_df):,} crashes ({matched/len(result_df)*100:.1f}%)')
     print(f'  Mean distance to station: {result_df["distance_to_aadt_m"].mean():.0f}m')
@@ -287,7 +424,7 @@ def attach_aadt_traffic(crashes_df, aadt_file):
 def engineer_features(df):
     """Engineer temporal, weather, and categorical features"""
     print(f'\n{"="*80}')
-    print('STEP 5: FEATURE ENGINEERING')
+    print('STEP 7: FEATURE ENGINEERING')
     print(f'{"="*80}')
 
     print('\nCreating features...')
@@ -361,13 +498,18 @@ def engineer_features(df):
                    'El Paso', 'Arlington', 'Corpus Christi']
     df['is_urban'] = df['City'].isin(urban_cities).astype(int)
 
-    # Target variable
-    df['high_severity'] = (df['Severity'] >= 3).astype(int)
+    # Target variable (now created in load_crashes to avoid using leakage feature Severity)
+    if 'high_severity' not in df.columns:
+        print('  ⚠️  Target variable high_severity not found - may need to check load_crashes()')
+        # Fallback: create if Severity still exists (shouldn't happen)
+        if 'Severity' in df.columns:
+            df['high_severity'] = (df['Severity'] >= 3).astype(int)
 
     print('  ✓ Temporal: hour, day_of_week, month, is_weekend, is_rush_hour, time_of_day')
     print('  ✓ Weather: weather_category, adverse_weather, low_visibility, temp_category')
     print('  ✓ Location: is_urban')
-    print('  ✓ Target: high_severity')
+    if 'high_severity' in df.columns:
+        print('  ✓ Target: high_severity (created earlier to avoid leakage)')
 
     return df
 
@@ -375,7 +517,7 @@ def engineer_features(df):
 def create_train_val_test_split(df):
     """Split data by year: 2016-2021 train, 2022 val, 2023 test"""
     print(f'\n{"="*80}')
-    print('STEP 6: CREATING TRAIN/VAL/TEST SPLITS')
+    print('STEP 8: CREATING TRAIN/VAL/TEST SPLITS')
     print(f'{"="*80}')
 
     train = df[df['year'] <= 2021].copy()
@@ -398,7 +540,7 @@ def create_train_val_test_split(df):
 def save_datasets(train, val, test, output_dir):
     """Save train/val/test datasets"""
     print(f'\n{"="*80}')
-    print('STEP 7: SAVING DATASETS')
+    print('STEP 9: SAVING DATASETS')
     print(f'{"="*80}')
 
     output_dir = Path(output_dir)
@@ -453,11 +595,14 @@ def print_dataset_summary(train, val, test):
     # Completeness
     print('\nFeature completeness (train):')
     important_features = ['highway_type', 'num_lanes', 'speed_limit', 'aadt',
+                         'hpms_speed_limit', 'hpms_lanes', 'hpms_iri',
+                         'lighting_condition', 'is_civil_twilight',
+                         'wz_nearest_distance_m', 'wz_count_1km',
                          'Temperature(F)', 'Visibility(mi)', 'weather_category']
     for feat in important_features:
         if feat in train.columns:
             pct = train[feat].notna().sum() / len(train) * 100
-            print(f'  {feat:20s}: {pct:5.1f}%')
+            print(f'  {feat:25s}: {pct:5.1f}%')
 
     print('\n' + '='*80)
     print('✅ DATASET CREATION COMPLETE!')
@@ -479,6 +624,9 @@ def main():
     parser.add_argument('--workzone-file', type=str,
                        default='data/raw/texas/workzones/texas_wzdx_feed.json',
                        help='Path to work zone JSON file')
+    parser.add_argument('--hpms-file', type=str,
+                       default=None,
+                       help='Path to HPMS file (default: data/raw/texas/roadway_characteristics/hpms_texas_2023.gpkg)')
     parser.add_argument('--cities', type=str, nargs='+',
                        help='Cities to include (default: top 5 cities)')
     parser.add_argument('--sample', type=int,
@@ -488,6 +636,10 @@ def main():
                        help='Output directory for datasets')
     parser.add_argument('--skip-osmnx', action='store_true',
                        help='Skip OSMnx road feature extraction (faster for testing)')
+    parser.add_argument('--skip-hpms', action='store_true',
+                       help='Skip HPMS road characteristics (faster for testing)')
+    parser.add_argument('--skip-lighting', action='store_true',
+                       help='Skip lighting condition features (faster for testing)')
     parser.add_argument('--skip-workzones', action='store_true',
                        help='Skip work zone integration (faster for testing)')
 
@@ -514,15 +666,29 @@ def main():
         print('\n⚠ Skipping OSMnx road feature extraction')
         crashes_with_roads = pd.DataFrame(crashes_gdf.drop(columns=['geometry'], errors='ignore'))
 
+    # Integrate HPMS road characteristics (speed limits, lanes, IRI)
+    if not args.skip_hpms:
+        crashes_with_hpms = integrate_hpms_road_characteristics(crashes_with_roads, args.hpms_file)
+    else:
+        print('\n⚠ Skipping HPMS integration')
+        crashes_with_hpms = crashes_with_roads
+
     # Integrate work zones
     if not args.skip_workzones:
-        crashes_with_wz = integrate_work_zones(crashes_with_roads, args.workzone_file)
+        crashes_with_wz = integrate_work_zones(crashes_with_hpms, args.workzone_file)
     else:
         print('\n⚠ Skipping work zone integration')
-        crashes_with_wz = crashes_with_roads
+        crashes_with_wz = crashes_with_hpms
+
+    # Add lighting conditions (sunrise/sunset based)
+    if not args.skip_lighting:
+        crashes_with_lighting = add_lighting_conditions(crashes_with_wz)
+    else:
+        print('\n⚠ Skipping lighting condition features')
+        crashes_with_lighting = crashes_with_wz
 
     # Attach AADT
-    crashes_with_aadt = attach_aadt_traffic(crashes_with_wz, args.aadt_file)
+    crashes_with_aadt = attach_aadt_traffic(crashes_with_lighting, args.aadt_file)
 
     # Engineer features
     ml_dataset = engineer_features(crashes_with_aadt)
