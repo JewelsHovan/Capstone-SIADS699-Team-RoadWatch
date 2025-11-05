@@ -55,9 +55,10 @@ DEFAULT_FOLDER_ID = '1xVGXbxUFHSdSawo2C9wnmABj15wPEX3A'
 TOKEN_FILE = 'token.json'
 CREDENTIALS_FILE = 'credentials.json'
 
-CRASH_LEVEL_DIR = Path('data/processed/crash_level')
-SEGMENT_LEVEL_DIR = Path('data/processed/segment_level')
-RAW_TEXAS_DIR = Path('data/raw/texas')
+# Use medallion architecture paths (Gold layer for ML datasets, Bronze for raw)
+CRASH_LEVEL_DIR = Path('data/gold/ml_datasets/crash_level')
+SEGMENT_LEVEL_DIR = Path('data/gold/ml_datasets/segment_level')
+BRONZE_TEXAS_DIR = Path('data/bronze/texas')
 
 def authenticate():
     """
@@ -307,9 +308,9 @@ def upload_dataset_directory(service, dataset_dir, parent_folder_id, dataset_nam
         ]
     elif dataset_name == 'segment_level':
         files_to_upload = [
-            ('segment_train_latest.csv', 'train.csv'),
-            ('segment_val_latest.csv', 'val.csv'),
-            ('segment_test_latest.csv', 'test.csv'),
+            ('train_latest.csv', 'train.csv'),
+            ('val_latest.csv', 'val.csv'),
+            ('test_latest.csv', 'test.csv'),
             ('DATA_DICTIONARY.md', 'DATA_DICTIONARY.md'),
         ]
     else:
@@ -355,8 +356,8 @@ def upload_raw_texas_data(service, parent_folder_id, verbose=True):
         Number of files uploaded
     """
 
-    if not RAW_TEXAS_DIR.exists():
-        print(f"❌ Raw Texas directory not found: {RAW_TEXAS_DIR}")
+    if not BRONZE_TEXAS_DIR.exists():
+        print(f"❌ Bronze Texas directory not found: {BRONZE_TEXAS_DIR}")
         return 0
 
     print(f"\n{'='*70}")
@@ -371,7 +372,7 @@ def upload_raw_texas_data(service, parent_folder_id, verbose=True):
         return 0
 
     # First upload the main data dictionary
-    main_dict_path = RAW_TEXAS_DIR / 'DATA_DICTIONARY.md'
+    main_dict_path = BRONZE_TEXAS_DIR / 'DATA_DICTIONARY.md'
     if main_dict_path.exists():
         upload_file(service, main_dict_path, raw_texas_folder_id,
                    upload_name='DATA_DICTIONARY.md', replace=True, verbose=verbose)
@@ -407,7 +408,7 @@ def upload_raw_texas_data(service, parent_folder_id, verbose=True):
         print(f"\n  📂 Uploading {category.upper()} data...")
 
         for local_path, upload_name in files:
-            file_path = RAW_TEXAS_DIR / local_path
+            file_path = BRONZE_TEXAS_DIR / local_path
 
             # Resolve symlink if needed
             if file_path.is_symlink():

@@ -53,6 +53,7 @@ token.json
 # Streamlit
 .streamlit/secrets.toml
 
+data_backup_*/
 # Data files (optional - uncomment if you don't want to commit large data files)
 # *.csv
 # *.parquet
@@ -93,3 +94,5 @@ logs/
 docs/
 data/
 cache/
+
+external/
