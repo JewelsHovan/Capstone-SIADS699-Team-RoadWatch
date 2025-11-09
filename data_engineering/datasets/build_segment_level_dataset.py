@@ -205,6 +205,48 @@ print(f'  ✓ Segments with crashes: {(segment_data["crash_count"] > 0).sum():,}
 print(f'  ✓ Segments without crashes: {(segment_data["crash_count"] == 0).sum():,} ({(segment_data["crash_count"] == 0).mean()*100:.1f}%)')
 
 # ============================================================================
+# EXPOSURE NORMALIZATION (NOT LEAKAGE - uses independent road characteristics)
+# ============================================================================
+print('\n  Computing exposure-normalized crash rate...')
+
+# Get geometry from original HPMS to calculate segment length
+segment_data = segment_data.merge(hpms[['segment_id', 'geometry']], on='segment_id', how='left')
+
+# Calculate segment length in miles (geometry is in UTM meters)
+if 'geometry' in segment_data.columns:
+    segment_data_gdf = gpd.GeoDataFrame(segment_data, geometry='geometry', crs='EPSG:3083')
+    segment_data['length_miles'] = segment_data_gdf.geometry.length / 1609.34  # meters to miles
+
+    # Calculate Vehicle Miles Traveled (VMT) per year
+    # VMT = AADT × length_miles × 365 days
+    if 'aadt' in segment_data.columns:
+        segment_data['vmt_annual'] = (
+            segment_data['aadt'] * segment_data['length_miles'] * 365
+        )
+
+        # Crash rate per 100 million VMT (standard safety metric)
+        # This is NOT leakage - it normalizes crashes by exposure
+        segment_data['crash_rate_per_100M_vmt'] = (
+            segment_data['crash_count'] / (segment_data['vmt_annual'] / 1e8)
+        ).replace([np.inf, -np.inf], np.nan).fillna(0)
+
+        segment_data['high_severity_rate_per_100M_vmt'] = (
+            segment_data['high_severity_count'] / (segment_data['vmt_annual'] / 1e8)
+        ).replace([np.inf, -np.inf], np.nan).fillna(0)
+
+        valid_rate = (segment_data['crash_rate_per_100M_vmt'] > 0).sum()
+        print(f'  ✓ Created exposure-normalized crash_rate ({valid_rate:,} non-zero values)')
+        print(f'    Mean crash rate: {segment_data["crash_rate_per_100M_vmt"].mean():.2f} crashes per 100M VMT')
+
+        # Drop VMT column (intermediate calculation)
+        segment_data = segment_data.drop(columns=['vmt_annual', 'geometry'], errors='ignore')
+    else:
+        print(f'  ⚠️  AADT not available - skipping exposure normalization')
+        segment_data = segment_data.drop(columns=['geometry'], errors='ignore')
+else:
+    print(f'  ⚠️  Geometry not available - skipping exposure normalization')
+
+# ============================================================================
 # 6. DATA QUALITY AND FILTERING
 # ============================================================================
 print('\n' + '='*80)

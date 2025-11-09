@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/julienh/Desktop/MADS/Capstone/mlruns/188463687723917477/9bf871f1cd9040308820882ba9ed8c89/artifacts
+end_time: 1762725914434
+entry_point_name: ''
+experiment_id: '188463687723917477'
+lifecycle_stage: active
+run_id: 9bf871f1cd9040308820882ba9ed8c89
+run_name: logistic_regression_baseline
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762725911403
+status: 3
+tags: []
+user_id: julienh

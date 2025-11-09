@@ -98,8 +98,13 @@ def train_logistic_regression(X_train, y_train, X_val, y_val):
     X_train_scaled = scaler.fit_transform(X_train)
     X_val_scaled = scaler.transform(X_val)
 
-    # Train model
-    model = LogisticRegression(max_iter=1000, random_state=42, n_jobs=-1)
+    # Train model with class balancing
+    model = LogisticRegression(
+        max_iter=1000,
+        random_state=42,
+        n_jobs=-1,
+        class_weight='balanced'  # Handle class imbalance
+    )
     print("Training...")
     model.fit(X_train_scaled, y_train)
 
@@ -127,13 +132,14 @@ def train_random_forest_classifier(X_train, y_train, X_val, y_val):
     print(f"TRAINING: Random Forest Classifier")
     print(f"{'='*70}")
 
-    # Train model
+    # Train model with class balancing
     model = RandomForestClassifier(
         n_estimators=100,
         max_depth=15,
         min_samples_split=100,
         random_state=42,
-        n_jobs=-1
+        n_jobs=-1,
+        class_weight='balanced_subsample'  # Handle class imbalance
     )
 
     print("Training...")

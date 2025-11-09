@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/julienh/Desktop/MADS/Capstone/mlruns/188463687723917477/f01e67015b6140348dce53ec523072b6/artifacts
+end_time: 1762725924143
+entry_point_name: ''
+experiment_id: '188463687723917477'
+lifecycle_stage: active
+run_id: f01e67015b6140348dce53ec523072b6
+run_name: random_forest_baseline
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762725922384
+status: 3
+tags: []
+user_id: julienh

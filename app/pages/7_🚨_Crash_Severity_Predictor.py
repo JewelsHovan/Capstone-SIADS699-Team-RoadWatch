@@ -82,7 +82,30 @@ with st.sidebar:
 col_map, col_inputs = st.columns([1.2, 1])
 
 with col_map:
-    st.markdown("### 📍 Step 1: Click Crash Location")
+    st.markdown("### 📍 Step 1: Select Crash Location")
+
+    # Button to drop/reset pin
+    col_btn1, col_btn2 = st.columns([1, 1])
+    with col_btn1:
+        if st.button("📍 Drop Pin at Center", use_container_width=True):
+            # Get current map center or use default
+            if 'crash_location' in st.session_state:
+                # Keep current location
+                pass
+            else:
+                # Drop at Texas center
+                st.session_state['crash_location'] = TEXAS_CENTER
+                st.session_state['location_updated'] = True
+
+    with col_btn2:
+        if st.button("🗑️ Clear Pin", use_container_width=True):
+            if 'crash_location' in st.session_state:
+                del st.session_state['crash_location']
+            if 'hpms_features' in st.session_state:
+                del st.session_state['hpms_features']
+            st.rerun()
+
+    st.info("💡 **Tip:** Click on map OR use 'Drop Pin' button, then drag the pin to adjust location")
 
     # Create interactive map
     m = folium.Map(
@@ -91,93 +114,170 @@ with col_map:
         tiles='OpenStreetMap'
     )
 
+    # Add draggable marker if location has been selected
+    if 'crash_location' in st.session_state:
+        crash_lat, crash_lon = st.session_state['crash_location']
+
+        # Add red DRAGGABLE pin marker at crash location
+        folium.Marker(
+            location=[crash_lat, crash_lon],
+            popup=f"Crash Location<br>({crash_lat:.4f}°, {crash_lon:.4f}°)<br><i>Drag to adjust</i>",
+            tooltip="🚨 Crash Location (Draggable)",
+            draggable=True,
+            icon=folium.Icon(color='red', icon='exclamation-triangle', prefix='fa')
+        ).add_to(m)
+
+        # Center map on the marker
+        m.location = [crash_lat, crash_lon]
+        m.zoom_start = 13
+
     # Display map
     map_data = st_folium(
         m,
         width=700,
         height=600,
-        key="crash_location_map"
+        key="crash_location_map",
+        returned_objects=["last_clicked", "last_object_clicked"]
     )
 
-    # Store clicked location
-    if map_data and map_data.get("last_clicked"):
+    # Handle map interactions
+    location_changed = False
+
+    # Check if user clicked on map (not on marker)
+    if map_data and map_data.get("last_clicked") and not map_data.get("last_object_clicked"):
         crash_lat = map_data["last_clicked"]["lat"]
         crash_lon = map_data["last_clicked"]["lng"]
+        st.session_state['crash_location'] = (crash_lat, crash_lon)
+        location_changed = True
 
-        st.success(f"✅ Location selected: ({crash_lat:.4f}°, {crash_lon:.4f}°)")
+    # Check if user dragged the marker
+    if map_data and map_data.get("last_object_clicked"):
+        clicked_obj = map_data["last_object_clicked"]
+        if isinstance(clicked_obj, dict) and "lat" in clicked_obj and "lng" in clicked_obj:
+            crash_lat = clicked_obj["lat"]
+            crash_lon = clicked_obj["lng"]
+            st.session_state['crash_location'] = (crash_lat, crash_lon)
+            location_changed = True
 
-        # Extract HPMS features for this location
-        with st.spinner("Extracting road characteristics..."):
-            try:
-                # Load HPMS data near clicked point
-                buffer = 0.01  # ~1km buffer
-                hpms = gpd.read_file(
-                    HPMS_FILE,
-                    bbox=(crash_lon - buffer, crash_lat - buffer,
-                          crash_lon + buffer, crash_lat + buffer)
-                )
+    # Display location and extract features if set
+    if 'crash_location' in st.session_state:
+        crash_lat, crash_lon = st.session_state['crash_location']
+        st.success(f"✅ Location: ({crash_lat:.4f}°, {crash_lon:.4f}°)")
 
-                if len(hpms) > 0:
-                    # Find nearest segment
-                    from shapely.geometry import Point
-                    crash_point = Point(crash_lon, crash_lat)
+        # Extract HPMS features only if location changed
+        if location_changed or 'hpms_features' not in st.session_state:
+            with st.spinner("Extracting road characteristics..."):
+                try:
+                    # Load HPMS data near clicked point
+                    buffer = 0.01  # ~1km buffer
+                    hpms = gpd.read_file(
+                        HPMS_FILE,
+                        bbox=(crash_lon - buffer, crash_lat - buffer,
+                              crash_lon + buffer, crash_lat + buffer)
+                    )
 
-                    # Convert to same CRS for distance calculation
-                    hpms_utm = hpms.to_crs('EPSG:3083')  # Texas-specific
-                    crash_point_utm = gpd.GeoSeries([crash_point], crs='EPSG:4326').to_crs('EPSG:3083')[0]
+                    if len(hpms) > 0:
+                        # Find nearest segment
+                        from shapely.geometry import Point
+                        crash_point = Point(crash_lon, crash_lat)
 
-                    # Calculate distances
-                    hpms_utm['distance_m'] = hpms_utm.geometry.distance(crash_point_utm)
-                    nearest = hpms_utm.loc[hpms_utm['distance_m'].idxmin()]
+                        # Convert to same CRS for distance calculation
+                        hpms_utm = hpms.to_crs('EPSG:3083')  # Texas-specific
+                        crash_point_utm = gpd.GeoSeries([crash_point], crs='EPSG:4326').to_crs('EPSG:3083')[0]
 
-                    # Convert features to numeric
-                    speed_limit = pd.to_numeric(nearest['speed_limit'].replace('NULL', np.nan), errors='coerce')
-                    through_lanes = pd.to_numeric(nearest['through_lanes'].replace('NULL', np.nan), errors='coerce')
-                    f_system = pd.to_numeric(nearest['f_system'].replace('NULL', np.nan), errors='coerce')
-                    aadt = pd.to_numeric(nearest['aadt'].replace('NULL', np.nan), errors='coerce')
+                        # Calculate distances
+                        hpms_utm['distance_m'] = hpms_utm.geometry.distance(crash_point_utm)
+                        nearest = hpms_utm.loc[hpms_utm['distance_m'].idxmin()]
 
-                    road_type_map = {
-                        1: 'Interstate',
-                        2: 'Freeway',
-                        3: 'Principal Arterial',
-                        4: 'Minor Arterial',
-                        5: 'Major Collector',
-                        6: 'Minor Collector',
-                        7: 'Local'
-                    }
+                        # Convert features to numeric (handle both string and numeric values)
+                        def safe_numeric_convert(value):
+                            """Safely convert HPMS value to numeric, handling NULL strings and NaN"""
+                            if pd.isna(value):
+                                return np.nan
+                            if isinstance(value, str):
+                                if value == 'NULL':
+                                    return np.nan
+                                return pd.to_numeric(value, errors='coerce')
+                            return pd.to_numeric(value, errors='coerce')
 
-                    st.markdown("#### 🛣️ Road Characteristics")
-                    st.markdown(f"""
-                    <div class="info-box">
-                    <ul>
-                        <li><b>Road Type:</b> {road_type_map.get(f_system, 'Unknown')}</li>
-                        <li><b>Speed Limit:</b> {speed_limit:.0f} mph</li>
-                        <li><b>Lanes:</b> {through_lanes:.0f}</li>
-                        <li><b>Traffic:</b> {aadt:,.0f} vehicles/day</li>
-                        <li><b>Distance:</b> {nearest['distance_m']:.1f} meters to segment</li>
-                    </ul>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        speed_limit = safe_numeric_convert(nearest['speed_limit'])
+                        through_lanes = safe_numeric_convert(nearest['through_lanes'])
+                        f_system = safe_numeric_convert(nearest['f_system'])
+                        aadt = safe_numeric_convert(nearest['aadt'])
 
-                    # Store in session state
-                    st.session_state['hpms_features'] = {
-                        'speed_limit': speed_limit,
-                        'through_lanes': through_lanes,
-                        'f_system': f_system,
-                        'aadt': aadt,
-                        'distance_m': nearest['distance_m']
-                    }
+                        road_type_map = {
+                            1: 'Interstate',
+                            2: 'Freeway',
+                            3: 'Principal Arterial',
+                            4: 'Minor Arterial',
+                            5: 'Major Collector',
+                            6: 'Minor Collector',
+                            7: 'Local'
+                        }
 
-                else:
-                    st.warning("⚠️ No road segments found near this location. Predictions may be less accurate.")
+                        # Handle NaN values for display
+                        road_type_str = road_type_map.get(f_system, 'Unknown') if not pd.isna(f_system) else 'Unknown'
+                        speed_str = f"{speed_limit:.0f} mph" if not pd.isna(speed_limit) else 'N/A'
+                        lanes_str = f"{through_lanes:.0f}" if not pd.isna(through_lanes) else 'N/A'
+                        aadt_str = f"{aadt:,.0f} vehicles/day" if not pd.isna(aadt) else 'N/A'
+
+                        st.markdown("#### 🛣️ Road Characteristics")
+                        st.markdown(f"""
+                        <div class="info-box">
+                        <ul>
+                            <li><b>Road Type:</b> {road_type_str}</li>
+                            <li><b>Speed Limit:</b> {speed_str}</li>
+                            <li><b>Lanes:</b> {lanes_str}</li>
+                            <li><b>Traffic:</b> {aadt_str}</li>
+                            <li><b>Distance:</b> {nearest['distance_m']:.1f} meters to segment</li>
+                        </ul>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        # Store in session state (use defaults for NaN values)
+                        st.session_state['hpms_features'] = {
+                            'speed_limit': speed_limit if not pd.isna(speed_limit) else 55.0,
+                            'through_lanes': through_lanes if not pd.isna(through_lanes) else 2.0,
+                            'f_system': f_system if not pd.isna(f_system) else 4.0,
+                            'aadt': aadt if not pd.isna(aadt) else 10000.0,
+                            'distance_m': nearest['distance_m']
+                        }
+
+                    else:
+                        st.warning("⚠️ No road segments found near this location. Predictions may be less accurate.")
+                        st.session_state['hpms_features'] = None
+
+                except Exception as e:
+                    st.error(f"Could not extract road features: {e}")
                     st.session_state['hpms_features'] = None
 
-            except Exception as e:
-                st.error(f"Could not extract road features: {e}")
-                st.session_state['hpms_features'] = None
+        # Display road characteristics if already loaded (even if location didn't change)
+        elif 'hpms_features' in st.session_state and st.session_state['hpms_features'] is not None:
+            features = st.session_state['hpms_features']
+
+            road_type_map = {
+                1: 'Interstate', 2: 'Freeway', 3: 'Principal Arterial',
+                4: 'Minor Arterial', 5: 'Major Collector',
+                6: 'Minor Collector', 7: 'Local'
+            }
+
+            road_type_str = road_type_map.get(features['f_system'], 'Unknown')
+
+            st.markdown("#### 🛣️ Road Characteristics")
+            st.markdown(f"""
+            <div class="info-box">
+            <ul>
+                <li><b>Road Type:</b> {road_type_str}</li>
+                <li><b>Speed Limit:</b> {features['speed_limit']:.0f} mph</li>
+                <li><b>Lanes:</b> {features['through_lanes']:.0f}</li>
+                <li><b>Traffic:</b> {features['aadt']:,.0f} vehicles/day</li>
+                <li><b>Distance:</b> {features['distance_m']:.1f} meters to segment</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
 
     else:
-        st.info("👆 Click on the map to select crash location")
+        st.info("👆 Click on map, use 'Drop Pin' button, or drag the pin to select crash location")
 
 with col_inputs:
     st.markdown("### ⚙️ Step 2: Enter Current Conditions")

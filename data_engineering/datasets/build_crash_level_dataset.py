@@ -153,6 +153,20 @@ def integrate_hpms(crashes_df, hpms_file):
         }
         crashes_with_hpms = crashes_with_hpms.rename(columns={k: v for k, v in rename_map.items() if k in crashes_with_hpms.columns})
 
+        # Convert HPMS features to numeric (they may be strings with "NULL")
+        print(f'\n  Converting HPMS features to numeric...')
+        for col in ['hpms_speed_limit', 'hpms_lanes', 'hpms_aadt']:
+            if col in crashes_with_hpms.columns:
+                # Replace "NULL" string with NaN, then convert to numeric
+                crashes_with_hpms[col] = pd.to_numeric(
+                    crashes_with_hpms[col].replace('NULL', np.nan),
+                    errors='coerce'
+                )
+
+        # Keep functional class as categorical (it's a code)
+        if 'hpms_functional_class' in crashes_with_hpms.columns:
+            crashes_with_hpms['hpms_functional_class'] = crashes_with_hpms['hpms_functional_class'].astype(str)
+
         print(f'\n  HPMS Feature Completeness:')
         for col in ['hpms_speed_limit', 'hpms_lanes', 'hpms_functional_class', 'hpms_aadt']:
             if col in crashes_with_hpms.columns:
@@ -284,17 +298,104 @@ def engineer_features(df):
 
     print('  ✓ Weather: weather_category, adverse_weather, low_visibility, temp_category')
 
-    # Location
+    # ========================================================================
+    # LOCATION FEATURES (Region instead of exact lat/lng to prevent overfitting)
+    # ========================================================================
+    print('\n  Engineering location features (preventing overfitting)...')
+
+    # Remove exact coordinates (cause overfitting - top 2 features)
+    if 'Start_Lat' in df.columns and 'Start_Lng' in df.columns:
+        # Create coarse geographic regions instead
+        # Texas roughly: lat 25-37, lng -107 to -93
+
+        # Latitude bins (North-South zones)
+        df['lat_zone'] = pd.cut(
+            df['Start_Lat'],
+            bins=[25, 29, 31, 33, 37],
+            labels=['south', 'south_central', 'central', 'north']
+        ).astype(str)
+
+        # Longitude bins (East-West zones)
+        df['lng_zone'] = pd.cut(
+            df['Start_Lng'],
+            bins=[-107, -103, -99, -96, -93],
+            labels=['west', 'west_central', 'central', 'east']
+        ).astype(str)
+
+        # Combined region (e.g., "south_west", "north_east")
+        df['region'] = df['lat_zone'] + '_' + df['lng_zone']
+
+        print(f'    ✓ Created coarse regions: {df["region"].nunique()} unique zones')
+
+        # DROP exact coordinates to force model to use generalizable features
+        df = df.drop(columns=['Start_Lat', 'Start_Lng'])
+        print(f'    ✓ Removed Start_Lat/Start_Lng (overfitting risk)')
+
+    # Urban classification
     if 'City' in df.columns:
-        # Urban vs rural (major cities = urban)
+        # Major metro areas
         major_cities = ['Houston', 'Dallas', 'Austin', 'San Antonio', 'Fort Worth', 'El Paso']
-        df['is_urban'] = df['City'].isin(major_cities).astype(int)
-        print('  ✓ Location: is_urban')
+        df['is_major_city'] = df['City'].isin(major_cities).astype(int)
+
+        # Create city size categories
+        city_sizes = df['City'].value_counts()
+        df['city_size_category'] = df['City'].map(
+            lambda x: 'large' if city_sizes.get(x, 0) > 1000 else
+                     'medium' if city_sizes.get(x, 0) > 100 else
+                     'small'
+        )
+
+        print('    ✓ Location: is_major_city, city_size_category')
+
+    # County (if available - better than exact coords)
+    if 'County' in df.columns:
+        # Encode top 20 counties by crash frequency
+        top_counties = df['County'].value_counts().head(20).index
+        df['county_top20'] = df['County'].apply(
+            lambda x: x if x in top_counties else 'other'
+        )
+        print(f'    ✓ County: top 20 counties + other')
 
     # Infrastructure
     if 'Junction' in df.columns:
         df['is_junction'] = (df['Junction'].notna()).astype(int)
         print('  ✓ Infrastructure: is_junction')
+
+    # ========================================================================
+    # HPMS ROAD CHARACTERISTICS (if integrated)
+    # ========================================================================
+    if 'hpms_speed_limit' in df.columns:
+        print('\n  Processing HPMS road characteristics...')
+
+        # Ensure numeric types (should be done in integrate_hpms but double-check)
+        for col in ['hpms_speed_limit', 'hpms_lanes', 'hpms_aadt']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # Speed limit categories
+        df['speed_category'] = pd.cut(
+            df['hpms_speed_limit'],
+            bins=[0, 35, 50, 65, 100],
+            labels=['low', 'medium', 'high', 'highway']
+        ).astype(str)
+
+        # Fill NaN categories with 'unknown'
+        df['speed_category'] = df['speed_category'].fillna('unknown')
+
+        # Lane categories
+        if 'hpms_lanes' in df.columns:
+            df['lane_category'] = pd.cut(
+                df['hpms_lanes'],
+                bins=[0, 2, 4, 10],
+                labels=['narrow', 'standard', 'wide']
+            ).astype(str)
+            df['lane_category'] = df['lane_category'].fillna('unknown')
+
+        # Functional class (already categorical)
+        if 'hpms_functional_class' in df.columns:
+            df['road_class'] = df['hpms_functional_class'].astype(str).replace('nan', 'unknown')
+
+        print('    ✓ HPMS features: speed_category, lane_category, road_class')
 
     print('  ✓ Target: high_severity (created earlier to avoid leakage)')
 

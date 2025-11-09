@@ -1,0 +1,23 @@
+# ML Engineering Infrastructure Requirements
+# Install with: pip install -r requirements_ml.txt
+
+# Experiment tracking
+mlflow>=2.9.0
+
+# Hyperparameter optimization
+optuna>=3.5.0
+
+# Data validation
+pandera>=0.17.0
+
+# Gradient boosting
+xgboost>=2.0.0
+lightgbm>=4.1.0
+
+# Core ML (should already be installed)
+scikit-learn>=1.3.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Progress bars
+tqdm>=4.65.0

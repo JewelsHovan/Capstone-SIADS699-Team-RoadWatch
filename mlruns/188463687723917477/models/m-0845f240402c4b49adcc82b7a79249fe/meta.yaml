@@ -1,0 +1,10 @@
+artifact_location: file:///Users/julienh/Desktop/MADS/Capstone/mlruns/188463687723917477/models/m-0845f240402c4b49adcc82b7a79249fe/artifacts
+creation_timestamp: 1762725922397
+experiment_id: '188463687723917477'
+last_updated_timestamp: 1762725924110
+model_id: m-0845f240402c4b49adcc82b7a79249fe
+model_type: null
+name: model
+source_run_id: f01e67015b6140348dce53ec523072b6
+status: 2
+status_message: null
