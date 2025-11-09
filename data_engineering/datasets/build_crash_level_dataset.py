@@ -301,44 +301,45 @@ def engineer_features(df):
     return df
 
 
-def create_stratified_split(df, test_size=0.15, val_size=0.15, random_state=42):
+def create_temporal_split(df):
     """
-    Create stratified random train/val/test split
+    Create temporal train/val/test split
 
-    This maintains class balance across all splits, unlike temporal split
-    which had severe drift (16.3% → 8.4% → 0.4%)
+    Train: 2016-2018
+    Val:   2019
+    Test:  2020
+
+    This simulates real-world deployment where we predict future crashes
+    based on historical patterns, addressing potential data leakage concerns.
     """
     print(f'\n{"="*80}')
-    print('STEP 5: CREATING STRATIFIED TRAIN/VAL/TEST SPLITS')
+    print('STEP 5: CREATING TEMPORAL TRAIN/VAL/TEST SPLITS')
     print(f'{"="*80}')
 
-    # First split: separate test set
-    train_val, test = train_test_split(
-        df,
-        test_size=test_size,
-        stratify=df['high_severity'],
-        random_state=random_state
-    )
+    print('\nUsing temporal split to avoid data leakage:')
+    print('  Train: 2016-2018 (to learn patterns)')
+    print('  Val:   2019 (to tune hyperparameters)')
+    print('  Test:  2020 (to evaluate final performance)')
 
-    # Second split: separate train and val
-    val_adjusted_size = val_size / (1 - test_size)  # Adjust for already-removed test set
-    train, val = train_test_split(
-        train_val,
-        test_size=val_adjusted_size,
-        stratify=train_val['high_severity'],
-        random_state=random_state
-    )
+    # Split by year
+    train = df[df['year'].isin([2016, 2017, 2018])].copy()
+    val = df[df['year'] == 2019].copy()
+    test = df[df['year'] == 2020].copy()
 
     print(f'\nSplit sizes:')
     print(f'  Train: {len(train):,} samples ({len(train)/len(df)*100:.1f}%)')
     print(f'  Val:   {len(val):,} samples ({len(val)/len(df)*100:.1f}%)')
     print(f'  Test:  {len(test):,} samples ({len(test)/len(df)*100:.1f}%)')
 
-    # Check class balance
+    # Check class balance (may differ across years - this is expected)
     print('\nClass distribution (high_severity):')
     print(f'  Train: {train["high_severity"].sum():,} / {len(train):,} ({train["high_severity"].mean()*100:.1f}%)')
     print(f'  Val:   {val["high_severity"].sum():,} / {len(val):,} ({val["high_severity"].mean()*100:.1f}%)')
     print(f'  Test:  {test["high_severity"].sum():,} / {len(test):,} ({test["high_severity"].mean()*100:.1f}%)')
+
+    if abs(train["high_severity"].mean() - test["high_severity"].mean()) > 0.05:
+        print('\n  ⚠️  Note: Class distribution varies across years (temporal drift)')
+        print('     This is expected in temporal splits and reflects real-world conditions')
 
     return train, val, test
 
@@ -456,8 +457,8 @@ Examples:
     crashes_with_aadt = attach_aadt(crashes_with_hpms, args.aadt_file)
     ml_dataset = engineer_features(crashes_with_aadt)
 
-    # Stratified split (maintains class balance)
-    train, val, test = create_stratified_split(ml_dataset)
+    # Temporal split (avoids data leakage, simulates real-world deployment)
+    train, val, test = create_temporal_split(ml_dataset)
 
     # Save
     train_path, val_path, test_path = save_datasets(train, val, test, args.output_dir)
