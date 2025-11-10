@@ -76,6 +76,7 @@ def train_xgboost_classifier(
         'eval_metric': 'auc',
         'random_state': 42,
         'n_jobs': -1,
+        'early_stopping_rounds': early_stopping_rounds,  # Set in constructor for XGBoost 2.0+
         **kwargs
     }
 
@@ -86,7 +87,6 @@ def train_xgboost_classifier(
     model.fit(
         X_train, y_train,
         eval_set=[(X_val, y_val)],
-        early_stopping_rounds=early_stopping_rounds,
         verbose=verbose
     )
 
@@ -166,6 +166,7 @@ def train_xgboost_regressor(
         'eval_metric': 'rmse',
         'random_state': 42,
         'n_jobs': -1,
+        'early_stopping_rounds': early_stopping_rounds,  # Set in constructor for XGBoost 2.0+
         **kwargs
     }
 
@@ -175,7 +176,6 @@ def train_xgboost_regressor(
     model.fit(
         X_train, y_train,
         eval_set=[(X_val, y_val)],
-        early_stopping_rounds=early_stopping_rounds,
         verbose=verbose
     )
 

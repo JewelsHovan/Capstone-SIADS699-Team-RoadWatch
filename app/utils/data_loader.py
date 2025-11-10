@@ -8,11 +8,26 @@ import streamlit as st
 from pathlib import Path
 from typing import Optional, Dict, Any
 import os
+import sys
 
-# Base paths
+# Add config to path
 BASE_DIR = Path(__file__).parent.parent.parent
-RAW_DATA_DIR = BASE_DIR / "data" / "raw" / "texas"
-PROCESSED_DATA_DIR = BASE_DIR / "data" / "processed"
+sys.path.insert(0, str(BASE_DIR))
+
+# Import centralized path configuration
+from config.paths import (
+    BRONZE_TEXAS,
+    GOLD_ML_DATASETS,
+    TEXAS_BRONZE_CRASHES,
+    TEXAS_BRONZE_WORKZONES,
+    TEXAS_BRONZE_WEATHER,
+    CRASH_LEVEL_ML,
+    SEGMENT_LEVEL_ML
+)
+
+# Use new Medallion architecture paths
+RAW_DATA_DIR = BRONZE_TEXAS  # data/bronze/texas
+PROCESSED_DATA_DIR = GOLD_ML_DATASETS  # data/gold/ml_datasets
 
 
 @st.cache_data(ttl=3600)
@@ -169,7 +184,7 @@ def load_crash_ml_dataset(split: str = 'train', sample_size: Optional[int] = Non
     Returns:
         DataFrame with crash-level ML data
     """
-    file_path = PROCESSED_DATA_DIR / "crash_level" / f"{split}_latest.csv"
+    file_path = CRASH_LEVEL_ML / f"{split}_latest.csv"
 
     if sample_size:
         df = pd.read_csv(file_path, nrows=sample_size, low_memory=False)
@@ -195,7 +210,8 @@ def load_segment_ml_dataset(split: str = 'train', sample_size: Optional[int] = N
     Returns:
         DataFrame with segment-level ML data
     """
-    file_path = PROCESSED_DATA_DIR / "segment_level" / f"segment_{split}_latest.csv"
+    # Segment files don't have 'segment_' prefix in gold layer
+    file_path = SEGMENT_LEVEL_ML / f"{split}_latest.csv"
 
     if sample_size:
         df = pd.read_csv(file_path, nrows=sample_size)
@@ -216,8 +232,8 @@ def get_data_summary() -> Dict[str, Any]:
 
     try:
         # Crash data counts (just count lines for performance)
-        kaggle_path = RAW_DATA_DIR / "crashes" / "kaggle_us_accidents_texas.csv"
-        austin_path = RAW_DATA_DIR / "crashes" / "austin_crashes_latest.csv"
+        kaggle_path = TEXAS_BRONZE_CRASHES / "kaggle_us_accidents_texas.csv"
+        austin_path = TEXAS_BRONZE_CRASHES / "austin_crashes_latest.csv"
 
         # Use wc -l for fast line counting
         import subprocess
@@ -269,21 +285,22 @@ def get_file_sizes() -> Dict[str, str]:
 
     sizes = {}
 
-    # Raw data
-    kaggle_path = RAW_DATA_DIR / "crashes" / "kaggle_us_accidents_texas.csv"
+    # Raw data from bronze layer
+    kaggle_path = TEXAS_BRONZE_CRASHES / "kaggle_us_accidents_texas.csv"
     if kaggle_path.exists():
         sizes['kaggle_crashes'] = format_size(os.path.getsize(kaggle_path))
 
-    austin_path = RAW_DATA_DIR / "crashes" / "austin_crashes_latest.csv"
+    austin_path = TEXAS_BRONZE_CRASHES / "austin_crashes_latest.csv"
     if austin_path.exists():
         sizes['austin_crashes'] = format_size(os.path.getsize(austin_path))
 
-    # ML datasets
-    crash_ml_path = PROCESSED_DATA_DIR / "crash_level" / "train_latest.csv"
+    # ML datasets from gold layer
+    crash_ml_path = CRASH_LEVEL_ML / "train_latest.csv"
     if crash_ml_path.exists():
         sizes['crash_ml_train'] = format_size(os.path.getsize(crash_ml_path))
 
-    segment_ml_path = PROCESSED_DATA_DIR / "segment_level" / "segment_train_latest.csv"
+    # Segment files don't have 'segment_' prefix
+    segment_ml_path = SEGMENT_LEVEL_ML / "train_latest.csv"
     if segment_ml_path.exists():
         sizes['segment_ml_train'] = format_size(os.path.getsize(segment_ml_path))
 

@@ -410,6 +410,10 @@ def train_xgboost(X_train, y_train, X_val, y_val, X_test, y_test,
         verbose=False
     )
 
+    # Remove early_stopping_rounds to allow calibration to refit without validation set
+    # The model already used early stopping during training and stopped at best iteration
+    xgb_model.set_params(early_stopping_rounds=None)
+
     # Create new pipeline with XGBoost
     xgb_pipeline.set_params(classifier=xgb_model)
 
@@ -449,6 +453,107 @@ def train_xgboost(X_train, y_train, X_val, y_val, X_test, y_test,
     print(f'{"="*70}')
 
 
+def train_xgboost_tuned(X_train, y_train, X_val, y_val, X_test, y_test,
+                        numeric_features, categorical_features):
+    """Train XGBoost with hyperparameter tuning"""
+    print(f'\n{"#"*70}')
+    print(f'# TRAINING XGBOOST WITH HYPERPARAMETER TUNING')
+    print(f'{"#"*70}\n')
+
+    # Start experiment
+    start_experiment('crash_severity_prediction')
+
+    # Create pipeline and preprocess
+    print('Preprocessing data...')
+    pipeline = create_crash_classifier_pipeline(
+        numeric_features=numeric_features,
+        categorical_features=categorical_features
+    )
+
+    pipeline.set_params(classifier='passthrough')
+    X_train_processed = pipeline.fit_transform(X_train, y_train)
+    X_val_processed = pipeline.transform(X_val)
+    X_test_processed = pipeline.transform(X_test)
+
+    # Import tuning function
+    from ml_engineering.utils.tuning import tune_xgboost
+
+    # Tune hyperparameters with more focus on regularization
+    print('Tuning XGBoost hyperparameters...')
+    print('This will test 30 different parameter combinations.')
+    print('Focus: Reducing overfitting with regularization\n')
+
+    best_params = tune_xgboost(
+        X_train_processed, y_train,
+        task='classification',
+        n_trials=30,
+        cv_folds=3,
+        scoring='roc_auc'
+    )
+
+    # Calculate scale_pos_weight
+    scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
+
+    # Add required params
+    best_params['scale_pos_weight'] = scale_pos_weight
+    best_params['random_state'] = 42
+    best_params['n_jobs'] = -1
+    best_params['eval_metric'] = 'auc'
+
+    # Remove early_stopping_rounds from best_params if it exists (will cause issues with calibration)
+    best_params.pop('early_stopping_rounds', None)
+
+    # Train final model with best hyperparameters
+    print(f'\n{"="*70}')
+    print('TRAINING FINAL XGBOOST WITH BEST HYPERPARAMETERS')
+    print(f'{"="*70}')
+
+    import xgboost as xgb
+    xgb_model = xgb.XGBClassifier(**best_params)
+
+    print('\nTraining...')
+    xgb_model.fit(X_train_processed, y_train)
+
+    # Evaluate before calibration
+    from ml_engineering.evaluation import evaluate_classifier
+    val_metrics = evaluate_classifier(xgb_model, X_val_processed, y_val, name='Validation Set')
+
+    # Put model in pipeline
+    pipeline.set_params(classifier=xgb_model)
+
+    # Calibrate
+    print('\nCalibrating probabilities...')
+    xgb_calibrated = calibrate_model(pipeline, X_val, y_val)
+
+    # Final test evaluation
+    test_metrics = evaluate_classifier(xgb_calibrated, X_test, y_test, name='Test Set')
+
+    # Save
+    artifact_path = save_model_artifact(
+        pipeline=xgb_calibrated,
+        feature_cols=numeric_features + categorical_features,
+        metrics=test_metrics,
+        model_name='xgboost_tuned_calibrated'
+    )
+
+    # Log to MLflow
+    log_model_run(
+        experiment_name='crash_severity_prediction',
+        run_name='xgboost_tuned',
+        params=best_params,
+        metrics=test_metrics,
+        model=xgb_calibrated,
+        tags={'type': 'tuned', 'calibrated': 'yes'}
+    )
+
+    print(f'\n{"="*70}')
+    print('✓ TUNED XGBOOST COMPLETE')
+    print(f'{"="*70}')
+    print(f'\nBest Hyperparameters:')
+    for param, value in sorted(best_params.items()):
+        print(f'  {param}: {value}')
+
+
 def main():
     parser = argparse.ArgumentParser(description='Train crash prediction models with MLflow')
     parser.add_argument('--dataset', choices=['crash', 'segment'], default='crash',
@@ -471,13 +576,27 @@ def main():
             numeric_features, categorical_features
         )
 
-    if args.tune:
+    if args.tune and args.model == 'baseline':
         train_with_tuning(
             X_train, y_train, X_val, y_val, X_test, y_test,
             numeric_features, categorical_features
         )
 
-    if args.model == 'xgboost' or args.model == 'all':
+    if args.model == 'xgboost':
+        if args.tune:
+            # Tune XGBoost hyperparameters
+            train_xgboost_tuned(
+                X_train, y_train, X_val, y_val, X_test, y_test,
+                numeric_features, categorical_features
+            )
+        else:
+            # Use default XGBoost params
+            train_xgboost(
+                X_train, y_train, X_val, y_val, X_test, y_test,
+                numeric_features, categorical_features
+            )
+
+    if args.model == 'all':
         train_xgboost(
             X_train, y_train, X_val, y_val, X_test, y_test,
             numeric_features, categorical_features

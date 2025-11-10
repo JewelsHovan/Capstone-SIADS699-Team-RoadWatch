@@ -96,3 +96,13 @@ data/
 cache/
 
 external/
+
+mlruns/
+
+# Model artifacts
+models/artifacts/
+*.pkl
+
+# Compressed files
+*.zip
+*.tar.gz
