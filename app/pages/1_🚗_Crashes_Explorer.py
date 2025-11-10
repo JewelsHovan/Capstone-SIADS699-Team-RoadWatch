@@ -10,8 +10,8 @@ import plotly.graph_objects as go
 import sys
 from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.append(str(Path(__file__).parent.parent))
+# Add parent directory to path for imports (insert at beginning to prioritize app/config.py)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import PAGE_CONFIG, CUSTOM_CSS, DEFAULT_SAMPLE_SIZES, SEVERITY_COLORS
 from utils.data_loader import load_crash_data, load_austin_crashes

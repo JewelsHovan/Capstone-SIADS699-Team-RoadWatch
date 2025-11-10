@@ -58,8 +58,8 @@ def check_duplicates(df, step_name):
     return df
 
 
-def load_crashes(crash_file, sample_size=None):
-    """Load crash data, filter to 2016-2020, create target"""
+def load_crashes(crash_file, sample_size=None, date_range=None):
+    """Load crash data, filter to date range, create target"""
     print(f'\n{"="*80}')
     print('STEP 1: LOADING CRASH DATA')
     print(f'{"="*80}')
@@ -68,11 +68,19 @@ def load_crashes(crash_file, sample_size=None):
     df = pd.read_csv(crash_file)
     print(f'  Total crashes in file: {len(df):,}')
 
-    # Filter to 2016-2020 only (consistent severity definition)
+    # Parse dates
     df['Start_Time'] = pd.to_datetime(df['Start_Time'])
     df['year'] = df['Start_Time'].dt.year
-    df = df[(df['year'] >= 2016) & (df['year'] <= 2020)].copy()
-    print(f'  After filtering to 2016-2020: {len(df):,}')
+
+    # Filter to date range
+    if date_range:
+        min_date, max_date = date_range
+        df = df[(df['Start_Time'] >= min_date) & (df['Start_Time'] <= max_date)].copy()
+        print(f'  After filtering to {min_date.date()} - {max_date.date()}: {len(df):,}')
+    else:
+        # Default to 2016-2020 (original behavior)
+        df = df[(df['year'] >= 2016) & (df['year'] <= 2020)].copy()
+        print(f'  After filtering to 2016-2020: {len(df):,}')
 
     # Sample if requested
     if sample_size and sample_size < len(df):
@@ -402,13 +410,20 @@ def engineer_features(df):
     return df
 
 
-def create_temporal_split(df):
+def create_temporal_split(df, train_range=None, val_range=None, test_range=None):
     """
     Create temporal train/val/test split
 
-    Train: 2016-2018
-    Val:   2019
-    Test:  2020
+    Args:
+        df: DataFrame with crash data
+        train_range: Tuple of (start_date, end_date) for training set
+        val_range: Tuple of (start_date, end_date) for validation set
+        test_range: Tuple of (start_date, end_date) for test set
+
+    If no ranges provided, defaults to:
+        Train: 2016-2018
+        Val:   2019
+        Test:  2020
 
     This simulates real-world deployment where we predict future crashes
     based on historical patterns, addressing potential data leakage concerns.
@@ -417,15 +432,26 @@ def create_temporal_split(df):
     print('STEP 5: CREATING TEMPORAL TRAIN/VAL/TEST SPLITS')
     print(f'{"="*80}')
 
-    print('\nUsing temporal split to avoid data leakage:')
-    print('  Train: 2016-2018 (to learn patterns)')
-    print('  Val:   2019 (to tune hyperparameters)')
-    print('  Test:  2020 (to evaluate final performance)')
+    if train_range and val_range and test_range:
+        # Custom date ranges
+        print('\nUsing custom temporal split:')
+        print(f'  Train: {train_range[0].date()} to {train_range[1].date()}')
+        print(f'  Val:   {val_range[0].date()} to {val_range[1].date()}')
+        print(f'  Test:  {test_range[0].date()} to {test_range[1].date()}')
 
-    # Split by year
-    train = df[df['year'].isin([2016, 2017, 2018])].copy()
-    val = df[df['year'] == 2019].copy()
-    test = df[df['year'] == 2020].copy()
+        train = df[(df['Start_Time'] >= train_range[0]) & (df['Start_Time'] <= train_range[1])].copy()
+        val = df[(df['Start_Time'] >= val_range[0]) & (df['Start_Time'] <= val_range[1])].copy()
+        test = df[(df['Start_Time'] >= test_range[0]) & (df['Start_Time'] <= test_range[1])].copy()
+    else:
+        # Default to 2016-2018 / 2019 / 2020
+        print('\nUsing default temporal split (2016-2020):')
+        print('  Train: 2016-2018 (to learn patterns)')
+        print('  Val:   2019 (to tune hyperparameters)')
+        print('  Test:  2020 (to evaluate final performance)')
+
+        train = df[df['year'].isin([2016, 2017, 2018])].copy()
+        val = df[df['year'] == 2019].copy()
+        test = df[df['year'] == 2020].copy()
 
     print(f'\nSplit sizes:')
     print(f'  Train: {len(train):,} samples ({len(train)/len(df)*100:.1f}%)')
@@ -515,18 +541,27 @@ def print_summary(train, val, test):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Build simplified ML training dataset',
+        description='Build crash-level ML training dataset with flexible temporal splits',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Full dataset (2016-2020, ~371K crashes)
-  python build_ml_dataset_simplified.py
+  # Default: 2016-2020 data with Train=2016-2018, Val=2019, Test=2020
+  python build_crash_level_dataset.py
+
+  # Option A: Pre-COVID validation (Train=2016-2017, Val=2018, Test=2019)
+  python build_crash_level_dataset.py \\
+    --train-start 2016-01-01 --train-end 2017-12-31 \\
+    --val-start 2018-01-01 --val-end 2018-12-31 \\
+    --test-start 2019-01-01 --test-end 2019-12-31
+
+  # Option B: Post-COVID models (Train=2021, Val=2022, Test=2023 Q1)
+  python build_crash_level_dataset.py \\
+    --train-start 2021-01-01 --train-end 2021-12-31 \\
+    --val-start 2022-01-01 --val-end 2022-12-31 \\
+    --test-start 2023-01-01 --test-end 2023-03-31
 
   # Small sample for testing
-  python build_ml_dataset_simplified.py --sample 10000
-
-  # Custom output location
-  python build_ml_dataset_simplified.py --output-dir /path/to/output
+  python build_crash_level_dataset.py --sample 10000
         """
     )
 
@@ -541,25 +576,65 @@ Examples:
     parser.add_argument('--output-dir', type=str, default=DEFAULT_OUTPUT_DIR,
                        help='Output directory for datasets')
 
+    # Temporal split arguments
+    parser.add_argument('--train-start', type=str, default=None,
+                       help='Training set start date (YYYY-MM-DD)')
+    parser.add_argument('--train-end', type=str, default=None,
+                       help='Training set end date (YYYY-MM-DD)')
+    parser.add_argument('--val-start', type=str, default=None,
+                       help='Validation set start date (YYYY-MM-DD)')
+    parser.add_argument('--val-end', type=str, default=None,
+                       help='Validation set end date (YYYY-MM-DD)')
+    parser.add_argument('--test-start', type=str, default=None,
+                       help='Test set start date (YYYY-MM-DD)')
+    parser.add_argument('--test-end', type=str, default=None,
+                       help='Test set end date (YYYY-MM-DD)')
+
     args = parser.parse_args()
 
+    # Parse date ranges if provided
+    date_range = None
+    train_range = None
+    val_range = None
+    test_range = None
+
+    if all([args.train_start, args.train_end, args.val_start, args.val_end, args.test_start, args.test_end]):
+        # Parse all dates
+        train_range = (pd.to_datetime(args.train_start), pd.to_datetime(args.train_end))
+        val_range = (pd.to_datetime(args.val_start), pd.to_datetime(args.val_end))
+        test_range = (pd.to_datetime(args.test_start), pd.to_datetime(args.test_end))
+
+        # Overall date range for loading data
+        all_dates = [train_range[0], train_range[1], val_range[0], val_range[1], test_range[0], test_range[1]]
+        date_range = (min(all_dates), max(all_dates))
+    elif any([args.train_start, args.train_end, args.val_start, args.val_end, args.test_start, args.test_end]):
+        print('ERROR: If using custom date ranges, all 6 date arguments must be provided:')
+        print('  --train-start, --train-end, --val-start, --val-end, --test-start, --test-end')
+        return
+
     print(f'\n{"="*80}')
-    print('SIMPLIFIED ML TRAINING DATASET BUILDER')
+    print('CRASH-LEVEL ML TRAINING DATASET BUILDER')
     print(f'{"="*80}')
     print(f'\nTimestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-    print(f'Data period: 2016-2020 (consistent severity definition)')
-    print(f'Split method: Stratified random (70/15/15)')
+
+    if date_range:
+        print(f'Data period: {date_range[0].date()} to {date_range[1].date()} (custom range)')
+        print(f'Split method: Temporal (custom dates)')
+    else:
+        print(f'Data period: 2016-2020 (default)')
+        print(f'Split method: Temporal (Train=2016-2018, Val=2019, Test=2020)')
+
     print(f'Crash file: {args.crash_file}')
     print(f'Output dir: {args.output_dir}')
 
     # Pipeline
-    crashes_df = load_crashes(args.crash_file, sample_size=args.sample)
+    crashes_df = load_crashes(args.crash_file, sample_size=args.sample, date_range=date_range)
     crashes_with_hpms = integrate_hpms(crashes_df, args.hpms_file)
     crashes_with_aadt = attach_aadt(crashes_with_hpms, args.aadt_file)
     ml_dataset = engineer_features(crashes_with_aadt)
 
     # Temporal split (avoids data leakage, simulates real-world deployment)
-    train, val, test = create_temporal_split(ml_dataset)
+    train, val, test = create_temporal_split(ml_dataset, train_range, val_range, test_range)
 
     # Save
     train_path, val_path, test_path = save_datasets(train, val, test, args.output_dir)

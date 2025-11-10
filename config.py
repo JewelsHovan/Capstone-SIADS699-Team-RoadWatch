@@ -3,6 +3,9 @@ Configuration file for Texas Work Zone Dashboard
 Colors, constants, and settings
 """
 
+# Path configuration
+from config.paths import TEXAS_GOLD_ANALYTICS
+
 # Page Configuration
 PAGE_CONFIG = {
     'page_title': 'Texas Work Zone Dashboard',
@@ -49,7 +52,7 @@ MAP_CENTER = [31.0, -100.0]  # Center of Texas
 MAP_ZOOM = 6
 
 # Data File Path
-DATA_PATH = 'data/processed/texas_work_zones_with_aadt.csv'
+DATA_PATH = str(TEXAS_GOLD_ANALYTICS / 'texas_work_zones_with_aadt.csv')
 
 # Display Column Names (for data explorer)
 DISPLAY_COLUMNS = [

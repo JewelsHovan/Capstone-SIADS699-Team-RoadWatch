@@ -23,10 +23,12 @@ from pathlib import Path
 from datetime import datetime
 import time
 
+from config.paths import TEXAS_BRONZE_CRASHES
+
 # Configuration
 BASE_URL = "https://data.austintexas.gov/resource/y2wy-tgr5.json"
 LIMIT_PER_REQUEST = 50000  # Socrata API limit
-OUTPUT_DIR = Path("data/raw/crashes")
+OUTPUT_DIR = TEXAS_BRONZE_CRASHES
 
 def count_records(construction_only=False, start_date=None, end_date=None):
     """Get total count of records matching filters"""

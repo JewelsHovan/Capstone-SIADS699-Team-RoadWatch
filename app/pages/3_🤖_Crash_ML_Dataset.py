@@ -11,8 +11,8 @@ import numpy as np
 import sys
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.append(str(Path(__file__).parent.parent))
+# Add parent directory to path (insert at beginning to prioritize app/config.py)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import PAGE_CONFIG, CUSTOM_CSS, CRASH_ML_FEATURES, DEFAULT_SAMPLE_SIZES
 from utils.data_loader import load_crash_ml_dataset

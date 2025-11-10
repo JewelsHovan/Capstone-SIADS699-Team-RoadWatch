@@ -20,7 +20,7 @@ Due to API limitations, we recommend manual download from BTS GeoData:
 1. Visit: https://geodata.bts.gov/
 2. Search: "HPMS Texas" or "Highway Performance Monitoring System"
 3. Download shapefile or GeoPackage
-4. Place in: data/raw/texas/roadway_characteristics/
+4. Place in: data/bronze/texas/roadway_characteristics/
 
 This script will then process the downloaded file.
 
@@ -186,7 +186,7 @@ def print_download_instructions():
     print("3. Filter to 2023 (latest available)")
     print("4. Click on Texas or National dataset")
     print("5. Download as: Shapefile or GeoPackage")
-    print("6. Save to: data/raw/texas/roadway_characteristics/")
+    print("6. Save to: data/bronze/texas/roadway_characteristics/")
 
     print("\n" + "─"*80)
     print("OPTION 2: FHWA Official Source")
@@ -194,14 +194,14 @@ def print_download_instructions():
     print("\n1. Visit: https://www.fhwa.dot.gov/policyinformation/hpms.cfm")
     print("2. Click 'HPMS Public Release'")
     print("3. Download Texas shapefile")
-    print("4. Extract and save to: data/raw/texas/roadway_characteristics/")
+    print("4. Extract and save to: data/bronze/texas/roadway_characteristics/")
 
     print("\n" + "─"*80)
     print("OPTION 3: Data.gov")
     print("─"*80)
     print("\n1. Visit: https://catalog.data.gov/dataset/highway-performance-monitoring-system-hpms")
     print("2. Download Texas subset or full national dataset")
-    print("3. Save to: data/raw/texas/roadway_characteristics/")
+    print("3. Save to: data/bronze/texas/roadway_characteristics/")
 
     print("\n" + "="*80)
     print("After download, process the file:")

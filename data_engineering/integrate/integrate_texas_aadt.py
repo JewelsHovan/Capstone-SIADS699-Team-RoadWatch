@@ -11,8 +11,14 @@ Usage:
 import geopandas as gpd
 import pandas as pd
 import numpy as np
-import os
 from pathlib import Path
+
+from config.paths import (
+    TEXAS_SILVER_WORKZONES,
+    TEXAS_BRONZE_TRAFFIC,
+    TEXAS_GOLD_ANALYTICS,
+    ensure_directories,
+)
 
 def load_texas_data():
     """Load Texas work zones and AADT data"""
@@ -23,7 +29,9 @@ def load_texas_data():
 
     # Load work zones
     print("\n1. Loading work zones...")
-    wz = pd.read_csv('data/processed/texas_work_zones_analysis.csv')
+    workzone_file = TEXAS_SILVER_WORKZONES / 'texas_work_zones_analysis.csv'
+    print(f"   Source: {workzone_file}")
+    wz = pd.read_csv(workzone_file)
 
     # Filter to records with coordinates
     wz_with_coords = wz[wz['latitude'].notna() & wz['longitude'].notna()].copy()
@@ -41,7 +49,9 @@ def load_texas_data():
 
     # Load AADT data
     print("\n2. Loading AADT traffic data...")
-    tx_aadt = gpd.read_file('data/raw/traffic/txdot_aadt_annual.gpkg')
+    aadt_path = TEXAS_BRONZE_TRAFFIC / 'txdot_aadt_annual.gpkg'
+    print(f"   Source: {aadt_path}")
+    tx_aadt = gpd.read_file(aadt_path)
 
     print(f"   Traffic stations: {len(tx_aadt):,}")
     print(f"   AADT range: {tx_aadt['AADT_RPT_QTY'].min():,.0f} - {tx_aadt['AADT_RPT_QTY'].max():,.0f}")
@@ -258,11 +268,12 @@ def save_enriched_data(wz_with_aadt):
     print("SAVING ENRICHED DATA")
     print("="*60)
 
-    output_dir = 'data/processed'
-    os.makedirs(output_dir, exist_ok=True)
+    ensure_directories()
+    output_dir = TEXAS_GOLD_ANALYTICS
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save as CSV (drop geometry for easier use)
-    output_csv = os.path.join(output_dir, 'texas_work_zones_with_aadt.csv')
+    output_csv = output_dir / 'texas_work_zones_with_aadt.csv'
 
     # Select key columns
     columns_to_save = [
@@ -289,14 +300,14 @@ def save_enriched_data(wz_with_aadt):
 
     df_to_save.to_csv(output_csv, index=False)
 
-    file_size_mb = os.path.getsize(output_csv) / 1024 / 1024
+    file_size_mb = output_csv.stat().st_size / 1024 / 1024
     print(f"\n✓ Saved to: {output_csv}")
     print(f"  Records: {len(df_to_save):,}")
     print(f"  Columns: {len(df_to_save.columns)}")
     print(f"  File size: {file_size_mb:.1f} MB")
 
     # Also save as GeoPackage (with geometry)
-    output_gpkg = os.path.join(output_dir, 'texas_work_zones_with_aadt.gpkg')
+    output_gpkg = output_dir / 'texas_work_zones_with_aadt.gpkg'
     wz_with_aadt.to_file(output_gpkg, driver='GPKG')
     print(f"\n✓ Saved to: {output_gpkg}")
 
@@ -311,7 +322,8 @@ def print_next_steps():
 
     print("\n1. Load the enriched data:")
     print("   import pandas as pd")
-    print("   tx_wz = pd.read_csv('data/processed/texas_work_zones_with_aadt.csv')")
+    analytics_path = TEXAS_GOLD_ANALYTICS / 'texas_work_zones_with_aadt.csv'
+    print(f"   tx_wz = pd.read_csv('{analytics_path}')")
 
     print("\n2. Use AADT features in ML model:")
     print("   feature_cols = [")

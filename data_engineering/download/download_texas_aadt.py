@@ -11,7 +11,9 @@ import json
 import os
 from pathlib import Path
 
-def download_texas_aadt(output_dir='data/raw/traffic'):
+from config.paths import TEXAS_BRONZE_TRAFFIC
+
+def download_texas_aadt(output_dir=None):
     """
     Download Texas AADT traffic data from TxDOT ArcGIS REST API
 
@@ -22,6 +24,10 @@ def download_texas_aadt(output_dir='data/raw/traffic'):
     print("\n" + "="*60)
     print("TEXAS AADT TRAFFIC DATA DOWNLOADER")
     print("="*60)
+
+    if output_dir is None:
+        output_dir = TEXAS_BRONZE_TRAFFIC
+    output_dir = Path(output_dir)
 
     # TxDOT AADT Feature Server URL
     base_url = "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TxDOT_Ramp_AADT_Traffic_Counts/FeatureServer/0/query"
@@ -167,7 +173,7 @@ def main():
         print("\nNext steps:")
         print("1. Load the data:")
         print("   import geopandas as gpd")
-        print("   tx_traffic = gpd.read_file('data/raw/traffic/texas_aadt_traffic_counts.gpkg')")
+        print(f"   tx_traffic = gpd.read_file('{TEXAS_BRONZE_TRAFFIC / 'texas_aadt_traffic_counts.gpkg'}')")
         print("\n2. Inspect the data:")
         print("   print(tx_traffic.columns)")
         print("   print(tx_traffic.head())")

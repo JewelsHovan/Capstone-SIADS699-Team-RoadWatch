@@ -19,6 +19,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
+
+from config.paths import CRASH_LEVEL_ML
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -36,7 +38,9 @@ print('='*80)
 
 # Load training data
 print('\nLoading training dataset...')
-train = pd.read_csv('data/processed/crash_level/train_latest.csv')
+train_path = CRASH_LEVEL_ML / 'train_latest.csv'
+print(f"  Source: {train_path}")
+train = pd.read_csv(train_path)
 print(f'  ✓ Loaded {len(train):,} samples')
 
 # Parse datetime

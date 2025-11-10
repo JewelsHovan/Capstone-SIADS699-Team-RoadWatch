@@ -20,13 +20,19 @@ import json
 import os
 from pathlib import Path
 
-def download_txdot_aadt_annual(output_dir='data/raw/traffic'):
+from config.paths import TEXAS_BRONZE_TRAFFIC
+
+def download_txdot_aadt_annual(output_dir=None):
     """
     Download TxDOT AADT Annual traffic data
 
     Returns:
         geopandas.GeoDataFrame with traffic count data
     """
+
+    if output_dir is None:
+        output_dir = TEXAS_BRONZE_TRAFFIC
+    output_dir = Path(output_dir)
 
     print("\n" + "="*60)
     print("TXDOT AADT ANNUAL TRAFFIC DATA DOWNLOADER")
@@ -189,7 +195,7 @@ def main():
         print("\nNext steps:")
         print("1. Load the data:")
         print("   import geopandas as gpd")
-        print("   tx_aadt = gpd.read_file('data/raw/traffic/txdot_aadt_annual.gpkg')")
+        print(f"   tx_aadt = gpd.read_file('{TEXAS_BRONZE_TRAFFIC / 'txdot_aadt_annual.gpkg'}')")
         print("\n2. Filter to most recent year:")
         print("   latest = tx_aadt[tx_aadt['AADT_RPT_YEAR'] == tx_aadt['AADT_RPT_YEAR'].max()]")
         print("\n3. Spatial join with work zones:")

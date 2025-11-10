@@ -25,12 +25,14 @@ from datetime import datetime
 import time
 from dotenv import load_dotenv
 
+from config.paths import TEXAS_BRONZE_WEATHER
+
 # Load environment variables from .env file
 load_dotenv()
 
 # Configuration
 BASE_URL = "https://www.ncei.noaa.gov/access/services/data/v1"
-OUTPUT_DIR = Path("data/raw/weather")
+OUTPUT_DIR = TEXAS_BRONZE_WEATHER
 
 # Major Texas metro areas with primary weather stations
 TEXAS_METROS = {

@@ -8,26 +8,24 @@ import streamlit as st
 from pathlib import Path
 from typing import Optional, Dict, Any
 import os
-import sys
 
-# Add config to path
+# Base paths - using Medallion architecture (Bronze/Silver/Gold)
 BASE_DIR = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(BASE_DIR))
 
-# Import centralized path configuration
-from config.paths import (
-    BRONZE_TEXAS,
-    GOLD_ML_DATASETS,
-    TEXAS_BRONZE_CRASHES,
-    TEXAS_BRONZE_WORKZONES,
-    TEXAS_BRONZE_WEATHER,
-    CRASH_LEVEL_ML,
-    SEGMENT_LEVEL_ML
-)
+# Bronze Layer: Raw data
+BRONZE_TEXAS = BASE_DIR / "data" / "bronze" / "texas"
+TEXAS_BRONZE_CRASHES = BRONZE_TEXAS / "crashes"
+TEXAS_BRONZE_WORKZONES = BRONZE_TEXAS / "workzones"
+TEXAS_BRONZE_WEATHER = BRONZE_TEXAS / "weather"
 
-# Use new Medallion architecture paths
-RAW_DATA_DIR = BRONZE_TEXAS  # data/bronze/texas
-PROCESSED_DATA_DIR = GOLD_ML_DATASETS  # data/gold/ml_datasets
+# Gold Layer: ML-ready datasets
+GOLD_ML_DATASETS = BASE_DIR / "data" / "gold" / "ml_datasets"
+CRASH_LEVEL_ML = GOLD_ML_DATASETS / "crash_level"
+SEGMENT_LEVEL_ML = GOLD_ML_DATASETS / "segment_level"
+
+# Backward compatibility aliases
+RAW_DATA_DIR = BRONZE_TEXAS
+PROCESSED_DATA_DIR = GOLD_ML_DATASETS
 
 
 @st.cache_data(ttl=3600)

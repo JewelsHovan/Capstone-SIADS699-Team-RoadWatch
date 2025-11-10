@@ -6,6 +6,12 @@ import streamlit as st
 from streamlit_folium import st_folium
 import folium
 from folium.plugins import Draw
+import sys
+from pathlib import Path
+
+# Add parent directory to path (insert at beginning to prioritize app/config.py)
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from config import PAGE_CONFIG, CUSTOM_CSS, TEXAS_CENTER
 
 # Page configuration

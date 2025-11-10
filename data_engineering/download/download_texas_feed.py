@@ -9,8 +9,8 @@ Data Source:
 - URL: https://datahub.transportation.gov/Roadways-and-Bridges/Texas-DOT-TxDOT-Work-Zone-Data-Schema-Version-2-0/h4kh-i7b7
 
 Output Structure:
-- data/raw/texas_wzdx_feed.json - Raw JSON feed
-- data/raw/texas_wzdx_feed.csv - CSV format
+- data/bronze/texas/workzones/texas_wzdx_feed.json - Raw JSON feed
+- data/bronze/texas/workzones/texas_wzdx_feed.csv - CSV format
 """
 
 import pandas as pd
@@ -21,20 +21,28 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from sodapy import Socrata
 
+from config.paths import (
+    TEXAS_BRONZE_WORKZONES,
+    TEXAS_SILVER_WORKZONES,
+    ensure_directories,
+)
+
 
 class TexasWorkZoneExtractor:
     """Handles downloading and processing Texas work zone data via Socrata API"""
 
-    def __init__(self, data_dir: str = 'data'):
+    def __init__(self, output_dir: str | Path = TEXAS_BRONZE_WORKZONES,
+                 processed_dir: str | Path | None = None):
         """
         Initialize Texas work zone data extractor
 
         Args:
-            data_dir: Root data directory (default: 'data')
+            output_dir: Directory for raw WZDx downloads
+            processed_dir: Directory for cleaned/derived outputs
         """
-        self.data_dir = Path(data_dir)
-        self.raw_dir = self.data_dir / 'raw'
-        self.processed_dir = self.data_dir / 'processed'
+        ensure_directories()
+        self.raw_dir = Path(output_dir)
+        self.processed_dir = Path(processed_dir) if processed_dir else TEXAS_SILVER_WORKZONES
 
         # Socrata API configuration
         self.socrata_domain = "datahub.transportation.gov"
@@ -264,8 +272,10 @@ Examples:
         """
     )
 
-    parser.add_argument('--data-dir', default='data',
-                       help='Data directory (default: data)')
+    parser.add_argument('--output-dir', default=str(TEXAS_BRONZE_WORKZONES),
+                       help='Directory for raw WZDx files (default: data/bronze/texas/workzones)')
+    parser.add_argument('--processed-dir', default=str(TEXAS_SILVER_WORKZONES),
+                       help='Directory for processed work zone files (default: data/silver/texas/workzones)')
     parser.add_argument('--limit', type=int, default=5000,
                        help='Maximum records to fetch (default: 5000)')
     parser.add_argument('--app-token',
@@ -280,7 +290,10 @@ Examples:
     args = parser.parse_args()
 
     # Initialize extractor
-    extractor = TexasWorkZoneExtractor(data_dir=args.data_dir)
+    extractor = TexasWorkZoneExtractor(
+        output_dir=args.output_dir,
+        processed_dir=args.processed_dir,
+    )
 
     print("\n" + "="*70)
     print(" " * 20 + "TEXAS WORK ZONE EXTRACTION")
@@ -313,11 +326,11 @@ Examples:
     print("="*70)
     print("\nGenerated files:")
     if not args.no_json:
-        print("  - data/raw/texas_wzdx_feed.json")
+        print(f"  - {extractor.raw_dir / 'texas_wzdx_feed.json'}")
     if not args.no_csv:
-        print("  - data/raw/texas_wzdx_feed.csv")
+        print(f"  - {extractor.raw_dir / 'texas_wzdx_feed.csv'}")
     if args.active_only:
-        print("  - data/processed/texas_work_zones_active.csv")
+        print(f"  - {extractor.processed_dir / 'texas_work_zones_active.csv'}")
 
     print("\nNext steps:")
     print("1. Analyze work zones:")

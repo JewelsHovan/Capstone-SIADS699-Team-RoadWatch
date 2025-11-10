@@ -32,6 +32,7 @@ SILVER_NEW_YORK = SILVER / "new_york"
 GOLD = DATA_ROOT / "gold"
 GOLD_ML_DATASETS = GOLD / "ml_datasets"
 GOLD_ANALYTICS = GOLD / "analytics"
+TEXAS_GOLD_ANALYTICS = GOLD_ANALYTICS / "texas"
 
 # ==============================================================================
 # TEXAS DATA PATHS (Bronze Layer)
@@ -48,6 +49,7 @@ TEXAS_BRONZE_HPMS = BRONZE_TEXAS / "HPMS2023.gdb"
 # ==============================================================================
 
 TEXAS_SILVER_ROADWAY = SILVER_TEXAS / "roadway"
+TEXAS_SILVER_WORKZONES = SILVER_TEXAS / "workzones"
 TEXAS_SILVER_TRAFFIC = SILVER_TEXAS / "traffic"
 TEXAS_SILVER_WEATHER = SILVER_TEXAS / "weather"
 
@@ -117,13 +119,15 @@ def ensure_directories():
     silver_dirs = [
         SILVER,
         SILVER_TEXAS, SILVER_CALIFORNIA, SILVER_NEW_YORK,
-        TEXAS_SILVER_ROADWAY, TEXAS_SILVER_TRAFFIC, TEXAS_SILVER_WEATHER
+        TEXAS_SILVER_ROADWAY, TEXAS_SILVER_WORKZONES,
+        TEXAS_SILVER_TRAFFIC, TEXAS_SILVER_WEATHER
     ]
 
     # Gold layer directories
     gold_dirs = [
         GOLD,
         GOLD_ML_DATASETS, GOLD_ANALYTICS,
+        TEXAS_GOLD_ANALYTICS,
         CRASH_LEVEL_ML, SEGMENT_LEVEL_ML, CRASH_LEVEL_ARCHIVE
     ]
 

@@ -11,8 +11,8 @@ import numpy as np
 import sys
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.append(str(Path(__file__).parent.parent))
+# Add parent directory to path (insert at beginning to prioritize app/config.py)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import PAGE_CONFIG, CUSTOM_CSS, SEGMENT_ML_FEATURES, RISK_COLORS
 from utils.data_loader import load_segment_ml_dataset
@@ -181,8 +181,8 @@ with tab2:
     available_targets = [t for t in target_vars if t in df.columns]
 
     if available_targets:
-        col1, col2, col3, col4 = st.columns(len(available_targets))
-        cols = [col1, col2, col3, col4]
+        # Create columns based on actual number of targets
+        cols = st.columns(len(available_targets))
 
         for i, target in enumerate(available_targets):
             with cols[i]:
