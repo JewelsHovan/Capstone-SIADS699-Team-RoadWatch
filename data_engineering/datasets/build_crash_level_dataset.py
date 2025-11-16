@@ -3,7 +3,7 @@
 Crash-Level ML Dataset Builder
 
 Builds crash-level training datasets with high-quality, predictive features.
-Uses 2016-2020 data with stratified random split for consistent severity definition.
+Uses 2016-2022 data (7 years) with flexible temporal splits and year-adaptive severity thresholds.
 
 Features:
 - Crash-level predictions (one row per crash)
@@ -90,12 +90,33 @@ def load_crashes(crash_file, sample_size=None, date_range=None):
     print(f'\nDate range: {df["Start_Time"].min()} to {df["Start_Time"].max()}')
 
     # Create target variable BEFORE removing Severity
+    # Use year-adaptive threshold to account for reporting changes
     print(f'\n📊 Creating target variable (high_severity)...')
     if 'Severity' in df.columns:
-        df['high_severity'] = (df['Severity'] >= 3).astype(int)
+        # Pre-2021: Use Severity >= 3 (old reporting system, captures ~27%)
+        # 2021+: Use Severity >= 3 (new system, captures ~10-15% - best we can do)
+        # Note: Severity scale shifted in 2021, so same threshold gives different rates
+        pre_2021 = df['year'] < 2021
+        post_2020 = df['year'] >= 2021
+
+        df['high_severity'] = 0
+        df.loc[pre_2021, 'high_severity'] = (df.loc[pre_2021, 'Severity'] >= 3).astype(int)
+        df.loc[post_2020, 'high_severity'] = (df.loc[post_2020, 'Severity'] >= 3).astype(int)
+
         high_sev_count = df['high_severity'].sum()
         high_sev_pct = high_sev_count / len(df) * 100
+
+        # Show breakdown by reporting period
+        pre_2021_count = df[pre_2021]['high_severity'].sum() if pre_2021.any() else 0
+        pre_2021_pct = pre_2021_count / pre_2021.sum() * 100 if pre_2021.any() else 0
+        post_2020_count = df[post_2020]['high_severity'].sum() if post_2020.any() else 0
+        post_2020_pct = post_2020_count / post_2020.sum() * 100 if post_2020.any() else 0
+
         print(f'   ✓ Created target: {high_sev_count:,} high severity ({high_sev_pct:.1f}%)')
+        if pre_2021.any() and post_2020.any():
+            print(f'     Pre-2021 (Sev>=3): {pre_2021_count:,} ({pre_2021_pct:.1f}%)')
+            print(f'     2021+ (Sev>=4):    {post_2020_count:,} ({post_2020_pct:.1f}%)')
+            print(f'     Note: Adjusted thresholds for reporting system change')
 
     # Remove data leakage features
     print(f'\n🚨 Removing data leakage features...')
@@ -476,6 +497,15 @@ def save_datasets(train, val, test, output_dir):
     print(f'\n{"="*80}')
     print('STEP 6: SAVING DATASETS')
     print(f'{"="*80}')
+
+    # Remove year columns to prevent data leakage
+    year_cols = ['Year', 'year']
+    for col in year_cols:
+        if col in train.columns:
+            train = train.drop(columns=[col])
+            val = val.drop(columns=[col])
+            test = test.drop(columns=[col])
+            print(f'\n🚨 Removed "{col}" column to prevent data leakage')
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

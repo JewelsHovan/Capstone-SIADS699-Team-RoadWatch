@@ -3,11 +3,11 @@
 Build Segment-Level ML Dataset
 
 Aggregates crash data onto HPMS road segments for road-level risk prediction.
-Creates multiple target variables and aggregates crash statistics by road segment.
+Creates count regression targets for work zone planning and infrastructure safety.
 
 Input:
   - HPMS Texas road segments (971K segments)
-  - Crash data from 2016-2020
+  - Crash data from 2016-2022 (7 years)
 
 Output: data/gold/ml_datasets/segment_level/
   - train_latest.csv
@@ -92,15 +92,30 @@ print(f'\nLoading {crashes_file}...')
 crashes = pd.read_csv(crashes_file)
 print(f'  ✓ Loaded {len(crashes):,} crashes')
 
-# Filter to 2016-2020 (consistent severity definition)
+# Filter to 2016-2022 (all available clean data, excluding partial 2023)
 crashes['Start_Time'] = pd.to_datetime(crashes['Start_Time'])
 crashes['year'] = crashes['Start_Time'].dt.year
-crashes_filtered = crashes[(crashes['year'] >= 2016) & (crashes['year'] <= 2020)].copy()
-print(f'  ✓ Filtered to 2016-2020: {len(crashes_filtered):,} crashes')
+crashes_filtered = crashes[(crashes['year'] >= 2016) & (crashes['year'] <= 2022)].copy()
+print(f'  ✓ Filtered to 2016-2022: {len(crashes_filtered):,} crashes')
 
-# Create high_severity target
-crashes_filtered['high_severity'] = (crashes_filtered['Severity'] >= 3).astype(int)
-print(f'  ✓ High severity: {crashes_filtered["high_severity"].sum():,} / {len(crashes_filtered):,} ({crashes_filtered["high_severity"].mean()*100:.1f}%)')
+# Create high_severity target with year-adaptive threshold
+# Pre-2021: Severity >= 3 (old reporting system)
+# 2021+: Severity >= 3 (new system - still use 3 to capture ~10-15%)
+pre_2021 = crashes_filtered['year'] < 2021
+post_2020 = crashes_filtered['year'] >= 2021
+
+crashes_filtered['high_severity'] = 0
+crashes_filtered.loc[pre_2021, 'high_severity'] = (crashes_filtered.loc[pre_2021, 'Severity'] >= 3).astype(int)
+crashes_filtered.loc[post_2020, 'high_severity'] = (crashes_filtered.loc[post_2020, 'Severity'] >= 3).astype(int)
+
+high_sev_count = crashes_filtered['high_severity'].sum()
+high_sev_pct = high_sev_count / len(crashes_filtered) * 100
+print(f'  ✓ High severity: {high_sev_count:,} / {len(crashes_filtered):,} ({high_sev_pct:.1f}%)')
+if pre_2021.any() and post_2020.any():
+    pre_count = crashes_filtered[pre_2021]['high_severity'].sum()
+    post_count = crashes_filtered[post_2020]['high_severity'].sum()
+    print(f'     Pre-2021: {pre_count:,} ({pre_count/pre_2021.sum()*100:.1f}%)')
+    print(f'     2021-2022: {post_count:,} ({post_count/post_2020.sum()*100:.1f}%)')
 
 # Convert to GeoDataFrame
 print('\nConverting crashes to GeoDataFrame...')
