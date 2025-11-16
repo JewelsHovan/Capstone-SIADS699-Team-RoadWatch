@@ -16,7 +16,8 @@ from pathlib import Path
 # Add parent directory to path (insert at beginning to prioritize app/config.py)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config import PAGE_CONFIG, CUSTOM_CSS, TEXAS_CENTER
+from config import PAGE_CONFIG, CUSTOM_CSS, TEXAS_CENTER, HPMS_TEXAS_2023
+from utils.hpms_loader import load_hpms_for_location, get_segment_at_location
 import plotly.graph_objects as go
 
 # Page configuration
@@ -24,8 +25,7 @@ st.set_page_config(**PAGE_CONFIG)
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Paths
-BASE_DIR = Path(__file__).parent.parent.parent
-HPMS_FILE = BASE_DIR / "data" / "silver" / "texas" / "roadway" / "hpms_texas_2023.gpkg"
+HPMS_FILE = HPMS_TEXAS_2023
 
 # Title
 st.markdown('<h1 class="main-header">Real-Time Crash Severity Predictor</h1>', unsafe_allow_html=True)
@@ -171,90 +171,84 @@ with col_map:
 
         # Extract HPMS features only if location changed
         if location_changed or 'hpms_features' not in st.session_state:
-            with st.spinner("Extracting road characteristics..."):
-                try:
-                    # Load HPMS data near clicked point
-                    buffer = 0.01  # ~1km buffer
-                    hpms = gpd.read_file(
-                        HPMS_FILE,
-                        bbox=(crash_lon - buffer, crash_lat - buffer,
-                              crash_lon + buffer, crash_lat + buffer)
-                    )
+            try:
+                # Load HPMS data near clicked point (cached - instant after first load)
+                hpms_full, hpms_filtered = load_hpms_for_location(crash_lat, crash_lon, buffer=0.01)
 
-                    if len(hpms) > 0:
-                        # Find nearest segment
-                        from shapely.geometry import Point
-                        crash_point = Point(crash_lon, crash_lat)
+                if len(hpms_filtered) > 0:
+                    # Find nearest segment using cached utility
+                    from shapely.geometry import Point
 
-                        # Convert to same CRS for distance calculation
-                        hpms_utm = hpms.to_crs('EPSG:3083')  # Texas-specific
-                        crash_point_utm = gpd.GeoSeries([crash_point], crs='EPSG:4326').to_crs('EPSG:3083')[0]
+                    # Convert to Texas CRS for accurate distance measurement
+                    hpms_utm = hpms_filtered.to_crs('EPSG:3083')
+                    crash_point = Point(crash_lon, crash_lat)
+                    crash_point_utm = gpd.GeoSeries([crash_point], crs='EPSG:4326').to_crs('EPSG:3083')[0]
 
-                        # Calculate distances
-                        hpms_utm['distance_m'] = hpms_utm.geometry.distance(crash_point_utm)
-                        nearest = hpms_utm.loc[hpms_utm['distance_m'].idxmin()]
+                    # Calculate distances
+                    hpms_utm['distance_m'] = hpms_utm.geometry.distance(crash_point_utm)
+                    nearest = hpms_utm.loc[hpms_utm['distance_m'].idxmin()]
 
-                        # Convert features to numeric (handle both string and numeric values)
-                        def safe_numeric_convert(value):
-                            """Safely convert HPMS value to numeric, handling NULL strings and NaN"""
-                            if pd.isna(value):
+                    # Convert features to numeric (handle both string and numeric values)
+                    def safe_numeric_convert(value):
+                        """Safely convert HPMS value to numeric, handling NULL strings and NaN"""
+                        if pd.isna(value):
+                            return np.nan
+                        if isinstance(value, str):
+                            if value == 'NULL':
                                 return np.nan
-                            if isinstance(value, str):
-                                if value == 'NULL':
-                                    return np.nan
-                                return pd.to_numeric(value, errors='coerce')
                             return pd.to_numeric(value, errors='coerce')
+                        return pd.to_numeric(value, errors='coerce')
 
-                        speed_limit = safe_numeric_convert(nearest['speed_limit'])
-                        through_lanes = safe_numeric_convert(nearest['through_lanes'])
-                        f_system = safe_numeric_convert(nearest['f_system'])
-                        aadt = safe_numeric_convert(nearest['aadt'])
+                    speed_limit = safe_numeric_convert(nearest['speed_limit'])
+                    through_lanes = safe_numeric_convert(nearest['through_lanes'])
+                    f_system = safe_numeric_convert(nearest['f_system'])
+                    aadt = safe_numeric_convert(nearest['aadt'])
 
-                        road_type_map = {
-                            1: 'Interstate',
-                            2: 'Freeway',
-                            3: 'Principal Arterial',
-                            4: 'Minor Arterial',
-                            5: 'Major Collector',
-                            6: 'Minor Collector',
-                            7: 'Local'
-                        }
+                    road_type_map = {
+                        1: 'Interstate',
+                        2: 'Freeway',
+                        3: 'Principal Arterial',
+                        4: 'Minor Arterial',
+                        5: 'Major Collector',
+                        6: 'Minor Collector',
+                        7: 'Local'
+                    }
 
-                        # Handle NaN values for display
-                        road_type_str = road_type_map.get(f_system, 'Unknown') if not pd.isna(f_system) else 'Unknown'
-                        speed_str = f"{speed_limit:.0f} mph" if not pd.isna(speed_limit) else 'N/A'
-                        lanes_str = f"{through_lanes:.0f}" if not pd.isna(through_lanes) else 'N/A'
-                        aadt_str = f"{aadt:,.0f} vehicles/day" if not pd.isna(aadt) else 'N/A'
+                    # Handle NaN values for display
+                    road_type_str = road_type_map.get(f_system, 'Unknown') if not pd.isna(f_system) else 'Unknown'
+                    speed_str = f"{speed_limit:.0f} mph" if not pd.isna(speed_limit) else 'N/A'
+                    lanes_str = f"{through_lanes:.0f}" if not pd.isna(through_lanes) else 'N/A'
+                    aadt_str = f"{aadt:,.0f} vehicles/day" if not pd.isna(aadt) else 'N/A'
 
-                        st.markdown("#### Road Characteristics")
-                        st.markdown(f"""
-                        <div class="info-box">
-                        <ul>
-                            <li><b>Road Type:</b> {road_type_str}</li>
-                            <li><b>Speed Limit:</b> {speed_str}</li>
-                            <li><b>Lanes:</b> {lanes_str}</li>
-                            <li><b>Traffic:</b> {aadt_str}</li>
-                            <li><b>Distance:</b> {nearest['distance_m']:.1f} meters to segment</li>
-                        </ul>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    st.markdown("#### Road Characteristics")
+                    st.markdown(f"""
+                    <div class="info-box">
+                    <ul>
+                        <li><b>Road Type:</b> {road_type_str}</li>
+                        <li><b>Speed Limit:</b> {speed_str}</li>
+                        <li><b>Lanes:</b> {lanes_str}</li>
+                        <li><b>Traffic:</b> {aadt_str}</li>
+                        <li><b>Distance:</b> {nearest['distance_m']:.1f} meters to segment</li>
+                    </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                        # Store in session state (use defaults for NaN values)
-                        st.session_state['hpms_features'] = {
-                            'speed_limit': speed_limit if not pd.isna(speed_limit) else 55.0,
-                            'through_lanes': through_lanes if not pd.isna(through_lanes) else 2.0,
-                            'f_system': f_system if not pd.isna(f_system) else 4.0,
-                            'aadt': aadt if not pd.isna(aadt) else 10000.0,
-                            'distance_m': nearest['distance_m']
-                        }
+                    # Store in session state (use defaults for NaN values)
+                    st.session_state['hpms_features'] = {
+                        'speed_limit': speed_limit if not pd.isna(speed_limit) else 55.0,
+                        'through_lanes': through_lanes if not pd.isna(through_lanes) else 2.0,
+                        'f_system': f_system if not pd.isna(f_system) else 4.0,
+                        'aadt': aadt if not pd.isna(aadt) else 10000.0,
+                        'distance_m': nearest['distance_m']
+                    }
 
-                    else:
-                        st.warning("⚠️ No road segments found near this location. Predictions may be less accurate.")
-                        st.session_state['hpms_features'] = None
-
-                except Exception as e:
-                    st.error(f"Could not extract road features: {e}")
+                else:
+                    st.warning("⚠️ No road segments found near this location. Predictions may be less accurate.")
                     st.session_state['hpms_features'] = None
+
+            except Exception as e:
+                st.error(f"Could not extract road features: {e}")
+                st.session_state['hpms_features'] = None
 
         # Display road characteristics if already loaded (even if location didn't change)
         elif 'hpms_features' in st.session_state and st.session_state['hpms_features'] is not None:

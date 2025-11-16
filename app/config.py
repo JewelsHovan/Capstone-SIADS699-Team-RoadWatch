@@ -2,6 +2,31 @@
 Configuration for Texas Crash Analysis Dashboard
 """
 
+from pathlib import Path
+
+# Base directory
+BASE_DIR = Path(__file__).parent.parent
+
+# Medallion Architecture Paths
+DATA_DIR = BASE_DIR / "data"
+
+# Silver Layer (Cleaned)
+SILVER_DIR = DATA_DIR / "silver"
+TEXAS_SILVER = SILVER_DIR / "texas"
+TEXAS_SILVER_ROADWAY = TEXAS_SILVER / "roadway"
+HPMS_TEXAS_2023 = TEXAS_SILVER_ROADWAY / "hpms_texas_2023.gpkg"
+
+# Gold Layer (ML-Ready)
+GOLD_DIR = DATA_DIR / "gold"
+ML_DATASETS_DIR = GOLD_DIR / "ml_datasets"
+CRASH_LEVEL_ML_DIR = ML_DATASETS_DIR / "crash_level"
+SEGMENT_LEVEL_ML_DIR = ML_DATASETS_DIR / "segment_level"
+
+# Models
+MODELS_DIR = BASE_DIR / "models"
+CRASH_SEVERITY_MODEL = MODELS_DIR / "crash_severity_model.pkl"
+SEGMENT_RISK_MODEL = MODELS_DIR / "segment_risk_model.pkl"
+
 # Page configuration
 PAGE_CONFIG = {
     "page_title": "Texas Crash Analysis Dashboard",

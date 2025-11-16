@@ -10,6 +10,13 @@ import joblib
 from typing import Optional, Dict, Any
 import pandas as pd
 import numpy as np
+from .preprocessing import (
+    preprocess_crash_features,
+    preprocess_segment_features,
+    create_feature_vector,
+    get_crash_feature_order,
+    get_segment_feature_order
+)
 
 # Base paths
 BASE_DIR = Path(__file__).parent.parent.parent
@@ -76,9 +83,12 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
     Returns:
         Dictionary with prediction results
     """
+    # Preprocess features
+    processed = preprocess_crash_features(features)
+
     if model is None:
         # Baseline heuristic prediction
-        risk_score = baseline_crash_severity_prediction(features)
+        risk_score = baseline_crash_severity_prediction(processed)
         return {
             'probability_high_severity': risk_score,
             'probability_low_severity': 1 - risk_score,
@@ -88,26 +98,20 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
 
     # Use trained model
     try:
-        # Convert features to DataFrame
-        feature_cols = [
-            'hour', 'day_of_week', 'is_weekend', 'is_rush_hour',
-            'temperature', 'visibility', 'adverse_weather', 'low_visibility',
-            'speed_limit', 'through_lanes', 'f_system', 'aadt'
-        ]
-
-        X = pd.DataFrame([features])[feature_cols]
-
-        # Handle missing values
-        X = X.fillna(X.median())
+        # Create feature vector in correct order
+        feature_vector = create_feature_vector(
+            processed,
+            get_crash_feature_order()
+        )
 
         # Get probability predictions
         if hasattr(model, 'predict_proba'):
-            proba = model.predict_proba(X)[0]
+            proba = model.predict_proba(feature_vector.reshape(1, -1))[0]
             prob_low = proba[0]
             prob_high = proba[1]
         else:
             # Model doesn't support probabilities, use decision function or predict
-            pred = model.predict(X)[0]
+            pred = model.predict(feature_vector.reshape(1, -1))[0]
             prob_high = pred if pred <= 1.0 else 1.0
             prob_low = 1 - prob_high
 
@@ -121,7 +125,7 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
     except Exception as e:
         st.error(f"Prediction error: {e}")
         # Fall back to baseline
-        risk_score = baseline_crash_severity_prediction(features)
+        risk_score = baseline_crash_severity_prediction(processed)
         return {
             'probability_high_severity': risk_score,
             'probability_low_severity': 1 - risk_score,
@@ -147,15 +151,17 @@ def predict_segment_risk(model, segment_features: pd.DataFrame) -> np.ndarray:
 
     # Use trained model
     try:
-        feature_cols = [
-            'speed_limit', 'through_lanes', 'f_system', 'urban_id', 'aadt',
-            'speed_x_aadt', 'fsystem_x_urban', 'lanes_x_aadt'
-        ]
+        # Get feature order
+        feature_cols = get_segment_feature_order()
 
-        X = segment_features[feature_cols]
+        # Preprocess each row and create feature matrix
+        processed_features = []
+        for _, row in segment_features.iterrows():
+            processed = preprocess_segment_features(row.to_dict())
+            feature_vector = create_feature_vector(processed, feature_cols)
+            processed_features.append(feature_vector)
 
-        # Handle missing values
-        X = X.fillna(X.median())
+        X = np.array(processed_features)
 
         # Predict
         predictions = model.predict(X)
@@ -171,12 +177,20 @@ def predict_segment_risk(model, segment_features: pd.DataFrame) -> np.ndarray:
         return baseline_segment_risk_prediction(segment_features)
 
 
-def baseline_crash_severity_prediction(features: Dict[str, Any]) -> float:
+def baseline_crash_severity_prediction(features: Dict[str, float]) -> float:
     """
-    Simple baseline heuristic for crash severity prediction
+    Simple baseline heuristic for crash severity prediction (Deterministic)
+
+    Baseline Rule-Based Model:
+    - Weather conditions: adverse weather and low visibility increase risk
+    - Time factors: night driving and rush hour increase risk
+    - Road factors: high speed limits and high traffic increase risk
+
+    Note: This is a deterministic baseline model. For production, replace with
+    a trained ML model that has been validated on historical crash data.
 
     Args:
-        features: Dictionary of feature values
+        features: Dictionary of preprocessed feature values (already floats)
 
     Returns:
         Probability of high severity (0-1)
@@ -184,30 +198,27 @@ def baseline_crash_severity_prediction(features: Dict[str, Any]) -> float:
     risk_score = 0.0
 
     # Weather risk
-    if features.get('adverse_weather', 0) == 1:
+    if features['adverse_weather'] == 1:
         risk_score += 0.25
-    if features.get('low_visibility', 0) == 1:
+    if features['low_visibility'] == 1:
         risk_score += 0.20
 
     # Time risk
-    hour = features.get('hour', 12)
+    hour = features['hour']
     if hour >= 22 or hour <= 4:  # Night
         risk_score += 0.15
-    if features.get('is_rush_hour', 0) == 1:
+    if features['is_rush_hour'] == 1:
         risk_score += 0.10
-    if features.get('is_weekend', 0) == 1 and (hour >= 22 or hour <= 4):  # Weekend night
+    if features['is_weekend'] == 1 and (hour >= 22 or hour <= 4):  # Weekend night
         risk_score += 0.15
 
     # Road risk
-    if features.get('speed_limit', 0) > 65:
+    if features['speed_limit'] > 65:
         risk_score += 0.15
-    if features.get('aadt', 0) > 50000:  # High traffic
+    if features['aadt'] > 50000:  # High traffic
         risk_score += 0.10
 
-    # Add small random noise for realism
-    risk_score += np.random.normal(0, 0.05)
-
-    # Clip to valid probability range
+    # Clip to valid probability range (no random noise for reproducibility)
     risk_score = np.clip(risk_score, 0, 1)
 
     return risk_score
@@ -215,7 +226,15 @@ def baseline_crash_severity_prediction(features: Dict[str, Any]) -> float:
 
 def baseline_segment_risk_prediction(segment_features: pd.DataFrame) -> np.ndarray:
     """
-    Simple baseline heuristic for segment risk prediction
+    Simple baseline heuristic for segment risk prediction (Deterministic)
+
+    Baseline Rule-Based Model:
+    - Speed limit: 30% weight (normalized to 0-10 scale)
+    - Traffic volume (AADT): 40% weight (normalized to 0-10K scale)
+    - Number of lanes: 30% weight
+
+    Note: This is a deterministic baseline model. For production, replace with
+    a trained ML model that has been validated on historical crash data.
 
     Args:
         segment_features: DataFrame with segment features
@@ -223,12 +242,11 @@ def baseline_segment_risk_prediction(segment_features: pd.DataFrame) -> np.ndarr
     Returns:
         Array of predicted crash counts
     """
-    # Baseline: Higher risk = high speed + high AADT + many lanes
+    # Baseline: Higher risk = high speed + high AADT + many lanes (no random noise)
     predictions = (
         segment_features['speed_limit'].fillna(0) / 10 * 0.3 +
         segment_features['aadt'].fillna(0) / 10000 * 0.4 +
-        segment_features['through_lanes'].fillna(0) * 0.3 +
-        np.random.normal(0, 0.5, len(segment_features))  # Add noise
+        segment_features['through_lanes'].fillna(0) * 0.3
     ).clip(lower=0)
 
     return predictions.values
@@ -282,73 +300,3 @@ def get_model_info(model_name: str) -> Optional[Dict[str, Any]]:
         info.update(metadata)
 
     return info
-
-
-# Feature preprocessing utilities
-def preprocess_crash_features(features: Dict[str, Any]) -> pd.DataFrame:
-    """
-    Preprocess features for crash severity prediction
-
-    Args:
-        features: Raw feature dictionary
-
-    Returns:
-        Preprocessed DataFrame ready for model input
-    """
-    # Define feature columns in expected order
-    feature_cols = [
-        'hour', 'day_of_week', 'is_weekend', 'is_rush_hour',
-        'temperature', 'visibility', 'adverse_weather', 'low_visibility',
-        'speed_limit', 'through_lanes', 'f_system', 'aadt'
-    ]
-
-    # Create DataFrame
-    df = pd.DataFrame([features])[feature_cols]
-
-    # Handle missing values
-    df = df.fillna({
-        'hour': 12,
-        'day_of_week': 2,
-        'is_weekend': 0,
-        'is_rush_hour': 0,
-        'temperature': 70,
-        'visibility': 10,
-        'adverse_weather': 0,
-        'low_visibility': 0,
-        'speed_limit': 60,
-        'through_lanes': 2,
-        'f_system': 4,
-        'aadt': 10000
-    })
-
-    return df
-
-
-def preprocess_segment_features(segments: pd.DataFrame) -> pd.DataFrame:
-    """
-    Preprocess features for segment risk prediction
-
-    Args:
-        segments: DataFrame with segment features
-
-    Returns:
-        Preprocessed DataFrame ready for model input
-    """
-    # Ensure required columns exist
-    required_cols = ['speed_limit', 'through_lanes', 'f_system', 'urban_id', 'aadt']
-
-    for col in required_cols:
-        if col not in segments.columns:
-            segments[col] = np.nan
-
-    # Create interaction features if not present
-    if 'speed_x_aadt' not in segments.columns:
-        segments['speed_x_aadt'] = segments['speed_limit'] * segments['aadt']
-
-    if 'fsystem_x_urban' not in segments.columns:
-        segments['fsystem_x_urban'] = segments['f_system'] * segments['urban_id']
-
-    if 'lanes_x_aadt' not in segments.columns:
-        segments['lanes_x_aadt'] = segments['through_lanes'] * segments['aadt']
-
-    return segments

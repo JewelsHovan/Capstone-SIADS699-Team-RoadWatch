@@ -16,18 +16,19 @@ from pathlib import Path
 # Add parent directory to path (insert at beginning to prioritize app/config.py)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config import PAGE_CONFIG, CUSTOM_CSS, TEXAS_CENTER
+from config import PAGE_CONFIG, CUSTOM_CSS, TEXAS_CENTER, HPMS_TEXAS_2023, SEGMENT_LEVEL_ML_DIR
+from utils.hpms_loader import load_hpms_full, load_hpms_for_location, get_segment_at_location
 import plotly.express as px
 import plotly.graph_objects as go
+from shapely.geometry import box as bbox_geom
 
 # Page configuration
 st.set_page_config(**PAGE_CONFIG)
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Paths
-BASE_DIR = Path(__file__).parent.parent.parent
-HPMS_FILE = BASE_DIR / "data" / "silver" / "texas" / "roadway" / "hpms_texas_2023.gpkg"
-ML_DATASETS_DIR = BASE_DIR / "data" / "gold" / "ml_datasets" / "segment_level"
+HPMS_FILE = HPMS_TEXAS_2023
+ML_DATASETS_DIR = SEGMENT_LEVEL_ML_DIR
 
 # Title
 st.markdown('<h1 class="main-header">Road Segment Risk Assessment</h1>', unsafe_allow_html=True)
@@ -157,62 +158,69 @@ with tab1:
                     "west": min(lons)
                 }
 
-                # Load HPMS segments in area
-                with st.spinner("Loading road segments in selected area..."):
-                    try:
-                        # Load HPMS data
-                        hpms = gpd.read_file(HPMS_FILE, bbox=(bbox['west'], bbox['south'], bbox['east'], bbox['north']))
+                # Load HPMS segments in area (using cached loader for performance)
+                try:
+                    # Load full HPMS (cached - instant after first load)
+                    hpms_full = load_hpms_full()
 
-                        if len(hpms) == 0:
-                            st.warning("No road segments found in selected area. Try selecting a larger area.")
-                        else:
-                            st.success(f"Found {len(hpms):,} road segments in selected area")
+                    # Filter to the drawn area
+                    bbox_shape = bbox_geom(bbox['west'], bbox['south'], bbox['east'], bbox['north'])
+                    hpms = hpms_full[hpms_full.intersects(bbox_shape)].copy()
 
-                            # Prepare features for prediction
-                            hpms['segment_id'] = hpms.index.astype(str)
+                    if len(hpms) == 0:
+                        st.warning("No road segments found in selected area. Try selecting a larger area.")
+                    else:
+                        st.success(f"Found {len(hpms):,} road segments in selected area")
 
-                            # Convert HPMS string types to numeric (fix pandas warnings)
-                            for col in ['speed_limit', 'through_lanes', 'f_system', 'urban_id', 'aadt']:
-                                if col in hpms.columns:
-                                    # Replace NULL strings with NaN, then convert to numeric
-                                    hpms[col] = pd.to_numeric(
-                                        hpms[col].replace({'NULL': np.nan}).infer_objects(copy=False),
-                                        errors='coerce'
-                                    )
+                        # Prepare features for prediction
+                        hpms['segment_id'] = hpms.index.astype(str)
 
-                            # Create interaction features
-                            if 'speed_limit' in hpms.columns and 'aadt' in hpms.columns:
-                                hpms['speed_x_aadt'] = hpms['speed_limit'] * hpms['aadt']
-                            if 'f_system' in hpms.columns and 'urban_id' in hpms.columns:
-                                hpms['fsystem_x_urban'] = hpms['f_system'] * hpms['urban_id']
-                            if 'through_lanes' in hpms.columns and 'aadt' in hpms.columns:
-                                hpms['lanes_x_aadt'] = hpms['through_lanes'] * hpms['aadt']
+                        # Convert HPMS string types to numeric (fix pandas warnings)
+                        for col in ['speed_limit', 'through_lanes', 'f_system', 'urban_id', 'aadt']:
+                            if col in hpms.columns:
+                                # Replace NULL strings with NaN, then convert to numeric
+                                hpms[col] = pd.to_numeric(
+                                    hpms[col].replace({'NULL': np.nan}).infer_objects(copy=False),
+                                    errors='coerce'
+                                )
 
-                            # Simple baseline prediction (replace with trained model)
-                            st.info(" Using baseline prediction model (demo). Replace with trained model for production.")
+                        # Create interaction features
+                        if 'speed_limit' in hpms.columns and 'aadt' in hpms.columns:
+                            hpms['speed_x_aadt'] = hpms['speed_limit'] * hpms['aadt']
+                        if 'f_system' in hpms.columns and 'urban_id' in hpms.columns:
+                            hpms['fsystem_x_urban'] = hpms['f_system'] * hpms['urban_id']
+                        if 'through_lanes' in hpms.columns and 'aadt' in hpms.columns:
+                            hpms['lanes_x_aadt'] = hpms['through_lanes'] * hpms['aadt']
 
-                            # Baseline heuristic: Higher risk = high speed + high AADT + many lanes
-                            hpms['predicted_risk'] = (
-                                hpms['speed_limit'].fillna(0) / 10 * 0.3 +
-                                hpms['aadt'].fillna(0) / 10000 * 0.4 +
-                                hpms['through_lanes'].fillna(0) * 0.3 +
-                                np.random.normal(0, 0.5, len(hpms))  # Add noise
-                            ).clip(lower=0)
+                        # Simple baseline prediction (replace with trained model)
+                        st.info(" Using baseline prediction model (demo). Replace with trained model for production.")
 
-                            # Classify risk levels
-                            hpms['risk_level'] = pd.cut(
-                                hpms['predicted_risk'],
-                                bins=[-np.inf, medium_risk_threshold, high_risk_threshold, np.inf],
-                                labels=['Low', 'Medium', 'High']
-                            )
+                        # Baseline Risk Model (Deterministic):
+                        # - Speed limit: 30% weight (normalized 0-1)
+                        # - AADT traffic: 40% weight (normalized 0-1)
+                        # - Lane count: 30% weight
+                        # Note: This is a simple rule-based model for demo purposes.
+                        # For production, replace with trained ML model.
+                        hpms['predicted_risk'] = (
+                            hpms['speed_limit'].fillna(0) / 10 * 0.3 +
+                            hpms['aadt'].fillna(0) / 10000 * 0.4 +
+                            hpms['through_lanes'].fillna(0) * 0.3
+                        ).clip(lower=0)
 
-                            # Store in session state so results persist across reruns
-                            st.session_state['hpms'] = hpms
-                            st.session_state['bbox'] = bbox
+                        # Classify risk levels
+                        hpms['risk_level'] = pd.cut(
+                            hpms['predicted_risk'],
+                            bins=[-np.inf, medium_risk_threshold, high_risk_threshold, np.inf],
+                            labels=['Low', 'Medium', 'High']
+                        )
 
-                    except Exception as e:
-                        st.error(f"Error loading segments: {e}")
-                        st.write("Make sure HPMS data file exists at:", HPMS_FILE)
+                        # Store in session state so results persist across reruns
+                        st.session_state['hpms'] = hpms
+                        st.session_state['bbox'] = bbox
+
+                except Exception as e:
+                    st.error(f"Error loading segments: {e}")
+                    st.write("Make sure HPMS data file exists at:", HPMS_FILE)
 
             # Display results if we have processed data (either just now or from previous run)
             if 'hpms' in st.session_state:
