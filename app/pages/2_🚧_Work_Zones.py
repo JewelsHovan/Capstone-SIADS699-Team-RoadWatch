@@ -23,7 +23,7 @@ st.set_page_config(**PAGE_CONFIG)
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Title
-st.markdown('<h1 class="main-header">🚧 Work Zones Analysis</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header"> Work Zones Analysis</h1>', unsafe_allow_html=True)
 st.markdown("**Analysis of active work zones across Texas**")
 st.markdown("---")
 
@@ -32,7 +32,7 @@ with st.spinner("Loading work zone data..."):
     df = load_work_zones()
 
 # Summary metrics
-st.markdown("## 📊 Overview")
+st.markdown("##  Overview")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -63,7 +63,7 @@ with col4:
 st.markdown("---")
 
 # Tabs
-tab1, tab2, tab3 = st.tabs(["🗺️ Map View", "📊 Analytics", "📋 Data Table"])
+tab1, tab2, tab3 = st.tabs([" Map View", " Analytics", " Data Table"])
 
 with tab1:
     st.markdown("### Work Zone Locations")
@@ -147,7 +147,7 @@ with tab3:
     # Download button
     csv = df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        "⬇️ Download Complete Dataset",
+        " Download Complete Dataset",
         data=csv,
         file_name="texas_work_zones.csv",
         mime="text/csv"
@@ -157,7 +157,7 @@ st.markdown("---")
 
 # Data source info
 st.markdown("""
-### 📝 Data Source
+###  Data Source
 **Source**: Texas Department of Transportation (TxDOT) Work Zone Data Exchange (WZDx) Feed
 **Format**: CSV export from JSON feed
 **Update Frequency**: Real-time

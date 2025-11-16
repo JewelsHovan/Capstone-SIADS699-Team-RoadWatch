@@ -30,13 +30,13 @@ st.set_page_config(**PAGE_CONFIG)
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Title
-st.markdown('<h1 class="main-header">🗺️ Segment-Level ML Dataset</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">Segment-Level ML Dataset</h1>', unsafe_allow_html=True)
 st.markdown("**Machine Learning dataset for road segment risk prediction**")
 st.markdown("---")
 
 # Sidebar controls
 with st.sidebar:
-    st.markdown("## 🔧 Dataset Controls")
+    st.markdown("## Dataset Controls")
 
     split = st.selectbox(
         "Select Split",
@@ -58,7 +58,7 @@ with st.spinner(f"Loading {split} dataset..."):
     df = load_segment_ml_dataset(split=split, sample_size=sample_size)
 
 # Overview metrics
-st.markdown("## 📊 Dataset Overview")
+st.markdown("## Dataset Overview")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -89,11 +89,11 @@ st.markdown("---")
 
 # Tabs
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📋 Dataset Info",
-    "🎯 Target Variables",
-    "📊 Feature Analysis",
-    "🗺️ Geographic View",
-    "📈 Temporal Patterns"
+    "Dataset Info",
+    "Target Variables",
+    "Feature Analysis",
+    "Geographic View",
+    "Temporal Patterns"
 ])
 
 with tab1:
@@ -104,7 +104,7 @@ with tab1:
     with col1:
         st.markdown("""
         <div class="info-box">
-        <h4>📁 Dataset Details</h4>
+        <h4>Dataset Details</h4>
         <ul>
             <li><b>Purpose</b>: Road segment risk prediction</li>
             <li><b>Granularity</b>: Quarterly aggregation</li>
@@ -118,7 +118,7 @@ with tab1:
     with col2:
         st.markdown("""
         <div class="info-box">
-        <h4>🎯 Target Variables</h4>
+        <h4>Target Variables</h4>
         <ul>
             <li><b>crash_count</b>: Number of crashes</li>
             <li><b>severity_rate</b>: Proportion high-severity</li>
@@ -130,7 +130,7 @@ with tab1:
         """, unsafe_allow_html=True)
 
     # Feature categories
-    st.markdown("### 📂 Feature Categories")
+    st.markdown("### Feature Categories")
 
     feature_cats = {
         "Temporal": SEGMENT_ML_FEATURES['temporal'],
@@ -164,7 +164,7 @@ with tab2:
 
             st.markdown("""
             <div class="info-box">
-            <h4>📊 Risk Distribution</h4>
+            <h4>Risk Distribution</h4>
             """, unsafe_allow_html=True)
 
             for risk_level in ['LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH']:
@@ -175,7 +175,7 @@ with tab2:
             st.markdown("</div>", unsafe_allow_html=True)
 
     # Target variable statistics
-    st.markdown("### 🎯 Target Variable Statistics")
+    st.markdown("### Target Variable Statistics")
 
     target_vars = ['crash_count', 'severity_rate', 'traffic_impact', 'risk_score_simple']
     available_targets = [t for t in target_vars if t in df.columns]
@@ -229,7 +229,7 @@ with tab3:
             st.plotly_chart(fig_hist, use_container_width=True)
 
         with col2:
-            st.markdown(f"### 📈 {selected_feature}")
+            st.markdown(f"### {selected_feature}")
 
             feature_data = df[selected_feature].dropna()
 
@@ -245,7 +245,7 @@ with tab3:
             """, unsafe_allow_html=True)
 
         # Feature correlations
-        st.markdown("### 🔗 Feature Correlations with Targets")
+        st.markdown("### Feature Correlations with Targets")
 
         if available_targets:
             corr_data = []
@@ -298,7 +298,7 @@ with tab4:
 
     # Geographic statistics
     if 'City' in df.columns:
-        st.markdown("### 📍 Top Cities by Crash Count")
+        st.markdown("### Top Cities by Crash Count")
 
         city_crashes = df.groupby('City')['crash_count'].sum().sort_values(ascending=False).head(15)
 
@@ -352,7 +352,7 @@ with tab5:
 
         # Seasonality analysis
         if 'quarter' in df.columns:
-            st.markdown("### 📅 Seasonal Patterns")
+            st.markdown("### Seasonal Patterns")
 
             seasonal = df.groupby('quarter')['crash_count'].mean().reset_index()
 
@@ -372,13 +372,13 @@ with tab5:
 st.markdown("---")
 
 # Data preview
-with st.expander("📋 View Data Sample"):
+with st.expander("View Data Sample"):
     st.dataframe(df.head(100), use_container_width=True)
 
     # Download button
     csv = df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        "⬇️ Download Sample Data (CSV)",
+        "Download Sample Data (CSV)",
         data=csv,
         file_name=f"segment_ml_{split}_sample.csv",
         mime="text/csv"
@@ -387,7 +387,7 @@ with st.expander("📋 View Data Sample"):
 # Sidebar - Current view
 with st.sidebar:
     st.markdown("---")
-    st.markdown("### 📊 Current View")
+    st.markdown("### Current View")
     st.markdown(f"**Split:** {split}")
     st.markdown(f"**Segment-Quarters:** {len(df):,}")
     if 'segment_id' in df.columns:

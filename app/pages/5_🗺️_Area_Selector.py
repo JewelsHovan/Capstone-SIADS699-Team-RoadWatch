@@ -21,7 +21,7 @@ st.set_page_config(**PAGE_CONFIG)
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Title
-st.markdown('<h1 class="main-header">🗺️ Texas Area Selector</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">Texas Area Selector</h1>', unsafe_allow_html=True)
 st.markdown("""
 <div style='text-align: center; font-size: 1.1rem; color: #7f8c8d; margin-bottom: 2rem;'>
     Draw boxes or polygons on the map to select areas of interest in Texas
@@ -32,7 +32,7 @@ st.markdown("---")
 
 # Instructions
 st.markdown("""
-### 📝 Instructions
+###  Instructions
 1. Use the **drawing tools** on the left side of the map
 2. Click the **rectangle** or **polygon** tool to draw areas
 3. Draw your area of interest on the map
@@ -43,7 +43,7 @@ st.markdown("""
 st.markdown("---")
 
 # Create the map
-st.markdown("### 🗺️ Interactive Map")
+st.markdown("### Interactive Map")
 
 # Initialize the map centered on Texas
 m = folium.Map(
@@ -98,7 +98,7 @@ map_data = st_folium(
 st.markdown("---")
 
 # Display selected area information
-st.markdown("### 📊 Selected Area Information")
+st.markdown("### Selected Area Information")
 
 if map_data and map_data.get("all_drawings"):
     drawings = map_data["all_drawings"]
@@ -184,22 +184,22 @@ if map_data and map_data.get("all_drawings"):
         # Option to download coordinates
         st.markdown("---")
         st.download_button(
-            label="📥 Download Area Data (JSON)",
+            label="Download Area Data (JSON)",
             data=str(drawings),
             file_name="selected_areas.json",
             mime="application/json"
         )
     else:
-        st.info("👆 Draw an area on the map above to see details")
+        st.info(" Draw an area on the map above to see details")
 else:
-    st.info("👆 Draw an area on the map above to see details")
+    st.info(" Draw an area on the map above to see details")
 
 # Sidebar
 with st.sidebar:
-    st.markdown("## 🗺️ Area Selector")
+    st.markdown("## Area Selector")
     st.markdown("---")
 
-    st.markdown("### 🎨 Drawing Tools")
+    st.markdown("### Drawing Tools")
     st.markdown("- **Rectangle**: Draw rectangular areas")
     st.markdown("- **Polygon**: Draw custom shapes")
     st.markdown("- **Edit**: Modify drawn shapes")
@@ -207,7 +207,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.markdown("### 💡 Use Cases")
+    st.markdown("### Use Cases")
     st.markdown("""
     - Select work zone locations
     - Define geographic regions
@@ -217,7 +217,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.markdown("### ℹ️ About")
+    st.markdown("### About")
     st.markdown("""
     This tool allows you to interactively select geographic areas in Texas
     for further analysis or filtering.

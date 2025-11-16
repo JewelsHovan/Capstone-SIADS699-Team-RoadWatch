@@ -28,13 +28,13 @@ st.set_page_config(**PAGE_CONFIG)
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Title
-st.markdown('<h1 class="main-header">🤖 Crash-Level ML Dataset</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header"> Crash-Level ML Dataset</h1>', unsafe_allow_html=True)
 st.markdown("**Machine Learning dataset for individual crash severity prediction**")
 st.markdown("---")
 
 # Sidebar controls
 with st.sidebar:
-    st.markdown("## 🔧 Dataset Controls")
+    st.markdown("##  Dataset Controls")
 
     split = st.selectbox(
         "Select Split",
@@ -52,7 +52,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.markdown(f"### 📊 Split Info")
+    st.markdown(f"###  Split Info")
     split_info = {
         "train": "2016-2021 (Train)",
         "val": "2022 (Validation)",
@@ -65,7 +65,7 @@ with st.spinner(f"Loading {split} dataset..."):
     df = load_crash_ml_dataset(split=split, sample_size=sample_size)
 
 # Overview metrics
-st.markdown("## 📊 Dataset Overview")
+st.markdown("##  Dataset Overview")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -78,7 +78,7 @@ with col2:
 with col3:
     if 'high_severity' in df.columns:
         high_sev_rate = df['high_severity'].mean()
-        st.metric("High Severity Rate", f"{high_sev_rate:.2%}")
+        st.metric("High Severity Rate", f"{high_sev_rate*100:.1f}%")
     else:
         st.metric("High Severity Rate", "N/A")
 
@@ -91,11 +91,11 @@ st.markdown("---")
 
 # Tabs
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📋 Dataset Info",
-    "🎯 Target Analysis",
-    "📊 Feature Distributions",
-    "🔗 Correlations",
-    "🔍 Data Quality"
+    " Dataset Info",
+    " Target Analysis",
+    " Feature Distributions",
+    " Correlations",
+    " Data Quality"
 ])
 
 with tab1:
@@ -106,7 +106,7 @@ with tab1:
     with col1:
         st.markdown("""
         <div class="info-box">
-        <h4>📁 Dataset Details</h4>
+        <h4> Dataset Details</h4>
         <ul>
             <li><b>Purpose</b>: Individual crash severity prediction</li>
             <li><b>Target Variable</b>: high_severity (binary)</li>
@@ -120,7 +120,7 @@ with tab1:
     with col2:
         st.markdown("""
         <div class="info-box">
-        <h4>🎯 Use Cases</h4>
+        <h4> Use Cases</h4>
         <ul>
             <li>Predict crash severity at time of occurrence</li>
             <li>Identify high-risk conditions</li>
@@ -131,7 +131,7 @@ with tab1:
         """, unsafe_allow_html=True)
 
     # Feature categories
-    st.markdown("### 📂 Feature Categories")
+    st.markdown("###  Feature Categories")
 
     feature_cats = {
         "Temporal": CRASH_ML_FEATURES['temporal'],
@@ -237,7 +237,7 @@ with tab3:
 
         with col2:
             # Statistics
-            st.markdown(f"### 📈 {selected_feature}")
+            st.markdown(f"###  {selected_feature}")
 
             if df[selected_feature].dtype in ['float64', 'int64']:
                 feature_data = df[selected_feature].dropna()
@@ -308,7 +308,7 @@ with tab4:
 
         # Top correlations with target
         if 'high_severity' in df.columns:
-            st.markdown("### 🎯 Features Most Correlated with Target")
+            st.markdown("###  Features Most Correlated with Target")
 
             top_corrs = correlations.head(10)
 
@@ -392,13 +392,13 @@ with tab5:
 st.markdown("---")
 
 # Data preview
-with st.expander("📋 View Data Sample"):
+with st.expander(" View Data Sample"):
     st.dataframe(df.head(100), use_container_width=True)
 
     # Download button
     csv = df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        "⬇️ Download Sample Data (CSV)",
+        " Download Sample Data (CSV)",
         data=csv,
         file_name=f"crash_ml_{split}_sample.csv",
         mime="text/csv"
@@ -407,9 +407,9 @@ with st.expander("📋 View Data Sample"):
 # Sidebar - Current view
 with st.sidebar:
     st.markdown("---")
-    st.markdown("### 📊 Current View")
+    st.markdown("###  Current View")
     st.markdown(f"**Split:** {split}")
     st.markdown(f"**Rows:** {len(df):,}")
     st.markdown(f"**Features:** {len(df.columns)}")
     if 'high_severity' in df.columns:
-        st.markdown(f"**High Severity:** {df['high_severity'].mean():.2%}")
+        st.markdown(f"**High Severity:** {df['high_severity'].mean()*100:.1f}%")

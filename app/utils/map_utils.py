@@ -229,7 +229,7 @@ def create_segment_map(df: pd.DataFrame, lat_col: str = 'Start_Lat', lon_col: st
         if 'crash_count' in row:
             popup_text += f"<b>Crashes:</b> {row['crash_count']}<br>"
         if 'severity_rate' in row:
-            popup_text += f"<b>Severity Rate:</b> {row['severity_rate']:.2%}<br>"
+            popup_text += f"<b>Severity Rate:</b> {row['severity_rate']*100:.1f}%<br>"
         if risk_col in row:
             popup_text += f"<b>Risk:</b> {row[risk_col]}<br>"
 

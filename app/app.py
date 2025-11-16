@@ -19,7 +19,7 @@ st.set_page_config(**PAGE_CONFIG)
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Title and description
-st.markdown('<h1 class="main-header">🚗 Texas Crash Analysis Dashboard</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header"> Texas Crash Analysis Dashboard</h1>', unsafe_allow_html=True)
 st.markdown("""
 <div style='text-align: center; font-size: 1.2rem; color: #7f8c8d; margin-bottom: 2rem;'>
     <b>SIADS 699 Capstone Project</b> | Comprehensive analysis of Texas traffic crashes, work zones, and ML datasets for crash risk prediction
@@ -34,7 +34,7 @@ with st.spinner("Loading summary statistics..."):
     file_sizes = get_file_sizes()
 
 # Hero Metrics Row
-st.markdown("## 📊 Dataset Overview")
+st.markdown("##  Dataset Overview")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -68,14 +68,14 @@ with col4:
 st.markdown("---")
 
 # Project Overview Section
-st.markdown("## 🎯 Project Goals")
+st.markdown("##  Project Goals")
 
 col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("""
     <div class="info-box">
-    <h3>📋 Objectives</h3>
+    <h3> Objectives</h3>
     <ul>
         <li><b>Crash Analysis</b>: Understand patterns in Texas traffic crashes (2016-2023)</li>
         <li><b>Work Zone Safety</b>: Analyze work zone locations and crash risk</li>
@@ -88,7 +88,7 @@ with col1:
 with col2:
     st.markdown("""
     <div class="info-box">
-    <h3>📂 Available Datasets</h3>
+    <h3> Available Datasets</h3>
     <ul>
         <li><b>Raw Crashes</b>: Kaggle US Accidents (213 MB) + Austin (81 MB)</li>
         <li><b>Work Zones</b>: TxDOT WZDx feed (2,180 zones)</li>
@@ -102,9 +102,9 @@ with col2:
 st.markdown("---")
 
 # Dataset Summary Cards
-st.markdown("## 📁 Dataset Summary")
+st.markdown("##  Dataset Summary")
 
-tab1, tab2, tab3 = st.tabs(["📊 Raw Data", "🤖 ML Datasets", "📏 File Sizes"])
+tab1, tab2, tab3 = st.tabs([" Raw Data", " ML Datasets", " File Sizes"])
 
 with tab1:
     col1, col2, col3 = st.columns(3)
@@ -112,7 +112,7 @@ with tab1:
     with col1:
         st.markdown("""
         <div class="success-box">
-        <h4>🚗 Crash Data</h4>
+        <h4> Crash Data</h4>
         <ul>
             <li><b>Kaggle Crashes</b>: {:,}</li>
             <li><b>Austin Crashes</b>: {:,}</li>
@@ -129,7 +129,7 @@ with tab1:
     with col2:
         st.markdown("""
         <div class="success-box">
-        <h4>🚧 Work Zones</h4>
+        <h4> Work Zones</h4>
         <ul>
             <li><b>Total Zones</b>: {:,}</li>
             <li><b>Counties</b>: {}</li>
@@ -145,7 +145,7 @@ with tab1:
     with col3:
         st.markdown("""
         <div class="success-box">
-        <h4>🌦️ Weather & Traffic</h4>
+        <h4> Weather & Traffic</h4>
         <ul>
             <li><b>Weather</b>: NOAA daily data</li>
             <li><b>Traffic</b>: TxDOT AADT</li>
@@ -161,7 +161,7 @@ with tab2:
     with col1:
         st.markdown("""
         <div class="info-box">
-        <h4>📊 Crash-Level ML Dataset</h4>
+        <h4> Crash-Level ML Dataset</h4>
         <ul>
             <li><b>Total Rows</b>: 1,135,762 crashes</li>
             <li><b>Features</b>: {} (78 engineered)</li>
@@ -175,7 +175,7 @@ with tab2:
     with col2:
         st.markdown("""
         <div class="info-box">
-        <h4>🗺️ Segment-Level ML Dataset</h4>
+        <h4> Segment-Level ML Dataset</h4>
         <ul>
             <li><b>Total Rows</b>: 303,281 segment-quarters</li>
             <li><b>Features</b>: {} (39 aggregated)</li>
@@ -193,7 +193,7 @@ with tab3:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("### 📦 Raw Data Files")
+        st.markdown("###  Raw Data Files")
         st.markdown(f"- **Kaggle Crashes**: {file_sizes.get('kaggle_crashes', 'N/A')}")
         st.markdown(f"- **Austin Crashes**: {file_sizes.get('austin_crashes', 'N/A')}")
         st.markdown(f"- **Work Zones**: 2.7 MB (JSON)")
@@ -201,7 +201,7 @@ with tab3:
         st.markdown(f"- **Traffic (AADT)**: 9.0 MB (GeoPackage)")
 
     with col2:
-        st.markdown("### 🤖 ML Dataset Files")
+        st.markdown("###  ML Dataset Files")
         st.markdown(f"- **Crash ML (train)**: {file_sizes.get('crash_ml_train', 'N/A')}")
         st.markdown(f"- **Crash ML (val)**: 90 MB")
         st.markdown(f"- **Crash ML (test)**: 14 MB")
@@ -211,12 +211,12 @@ with tab3:
 st.markdown("---")
 
 # Quick Visualization Section
-st.markdown("## 📈 Quick Insights")
+st.markdown("##  Quick Insights")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("### 🗺️ Texas Overview")
+    st.markdown("###  Texas Overview")
 
     # Create simple Texas map
     m = folium.Map(
@@ -245,7 +245,7 @@ with col1:
     """, unsafe_allow_html=True)
 
 with col2:
-    st.markdown("### 📊 Dataset Composition")
+    st.markdown("###  Dataset Composition")
 
     # Create dataset composition chart
     dataset_data = {
@@ -279,14 +279,14 @@ with col2:
 st.markdown("---")
 
 # Navigation Guide
-st.markdown("## 🧭 Navigation Guide")
+st.markdown("##  Navigation Guide")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown("""
     <div class="info-box">
-    <h4>📁 Raw Data Pages</h4>
+    <h4> Raw Data Pages</h4>
     <ul>
         <li><b>Crashes Explorer</b>: Temporal & geographic analysis</li>
         <li><b>Work Zones</b>: Active zones visualization</li>
@@ -298,7 +298,7 @@ with col1:
 with col2:
     st.markdown("""
     <div class="info-box">
-    <h4>🤖 ML Dataset Pages</h4>
+    <h4> ML Dataset Pages</h4>
     <ul>
         <li><b>Crash-Level</b>: Feature analysis & distributions</li>
         <li><b>Segment-Level</b>: Risk patterns & aggregates</li>
@@ -310,7 +310,7 @@ with col2:
 with col3:
     st.markdown("""
     <div class="info-box">
-    <h4>🎯 Future Pages</h4>
+    <h4> Future Pages</h4>
     <ul>
         <li><b>Risk Prediction</b>: Work zone risk tool</li>
         <li><b>Model Performance</b>: ML model results</li>
@@ -331,30 +331,30 @@ st.markdown("""
 
 # Sidebar
 with st.sidebar:
-    st.markdown("## 📊 Dashboard Info")
+    st.markdown("##  Dashboard Info")
     st.markdown("---")
 
-    st.markdown("### 📁 Datasets")
+    st.markdown("###  Datasets")
     st.markdown(f"✅ Crashes: {summary.get('total_crashes', 0):,}")
     st.markdown(f"✅ Work Zones: {summary.get('work_zones', 0):,}")
     st.markdown(f"✅ Segments: {summary.get('unique_segments', 0):,}")
 
     st.markdown("---")
 
-    st.markdown("### 🗺️ Pages")
-    st.markdown("- 🏠 Home (current)")
-    st.markdown("- 📁 Raw Data Analysis")
-    st.markdown("- 🤖 ML Datasets")
-    st.markdown("- 🎯 Risk Prediction (coming)")
+    st.markdown("###  Pages")
+    st.markdown("-  Home (current)")
+    st.markdown("-  Raw Data Analysis")
+    st.markdown("-  ML Datasets")
+    st.markdown("-  Risk Prediction (coming)")
 
     st.markdown("---")
 
-    st.markdown("### 🔗 Resources")
+    st.markdown("###  Resources")
     st.markdown("[GitHub Repository](https://github.com/JewelsHovan/Capstone-SIADS699)")
     st.markdown("[Google Drive Data](https://drive.google.com/drive/folders/1xVGXbxUFHSdSawo2C9wnmABj15wPEX3A)")
 
     st.markdown("---")
-    st.markdown("### ℹ️ About")
+    st.markdown("### ℹ About")
     st.markdown("""
     This dashboard provides comprehensive analysis of Texas traffic crashes
     and ML datasets for crash risk prediction.

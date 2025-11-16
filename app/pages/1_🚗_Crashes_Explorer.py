@@ -30,13 +30,13 @@ st.set_page_config(**PAGE_CONFIG)
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Title
-st.markdown('<h1 class="main-header">🚗 Crashes Explorer</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header"> Crashes Explorer</h1>', unsafe_allow_html=True)
 st.markdown("**Comprehensive analysis of Texas traffic crashes (2016-2023)**")
 st.markdown("---")
 
 # Sidebar - Data Selection
 with st.sidebar:
-    st.markdown("## 🔧 Data Controls")
+    st.markdown("##  Data Controls")
 
     data_source = st.selectbox(
         "Select Dataset",
@@ -58,7 +58,7 @@ with st.sidebar:
     date_filter = st.checkbox("Enable Date Filter", value=False)
 
     if date_filter:
-        st.markdown("### 📅 Date Range")
+        st.markdown("###  Date Range")
         start_year = st.selectbox("Start Year", list(range(2016, 2024)), index=0)
         end_year = st.selectbox("End Year", list(range(2016, 2024)), index=7)
 
@@ -103,7 +103,7 @@ if severity_filter and 'Severity' in df.columns:
     df = df[df['Severity'].isin(selected_severities)]
 
 # Summary metrics
-st.markdown("## 📊 Summary Statistics")
+st.markdown("##  Summary Statistics")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -150,7 +150,7 @@ with col4:
 st.markdown("---")
 
 # Visualization tabs
-tab1, tab2, tab3, tab4 = st.tabs(["📈 Temporal Analysis", "🗺️ Geographic Analysis", "⚠️ Severity Analysis", "📊 Feature Distributions"])
+tab1, tab2, tab3, tab4 = st.tabs([" Temporal Analysis", " Geographic Analysis", "⚠️ Severity Analysis", " Feature Distributions"])
 
 with tab1:
     st.markdown("### Crashes Over Time")
@@ -177,7 +177,7 @@ with tab1:
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
-            st.markdown("### 📅 Insights")
+            st.markdown("###  Insights")
 
             # Parse dates
             df_temp = df.copy()
@@ -246,7 +246,7 @@ with tab2:
 
         # County distribution
         if county_col in df.columns:
-            st.markdown("### 📍 Top Counties by Crash Count")
+            st.markdown("###  Top Counties by Crash Count")
 
             fig_county = create_county_bar_chart(df, county_col=county_col, top_n=15)
             st.plotly_chart(fig_county, use_container_width=True)
@@ -267,7 +267,7 @@ with tab3:
 
         with col2:
             # Severity statistics
-            st.markdown("### 📊 Severity Stats")
+            st.markdown("###  Severity Stats")
 
             sev_counts = df['Severity'].value_counts().sort_index()
 
@@ -335,7 +335,7 @@ with tab4:
 
         with col2:
             # Statistics
-            st.markdown(f"### 📈 {selected_feature} Stats")
+            st.markdown(f"###  {selected_feature} Stats")
 
             feature_data = df[selected_feature].dropna()
 
@@ -363,13 +363,13 @@ with tab4:
 st.markdown("---")
 
 # Data preview
-with st.expander("📋 View Raw Data Sample"):
+with st.expander(" View Raw Data Sample"):
     st.dataframe(df.head(100), use_container_width=True)
 
     # Download button
     csv = df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="⬇️ Download Filtered Data (CSV)",
+        label=" Download Filtered Data (CSV)",
         data=csv,
         file_name=f"texas_crashes_{data_source.replace(' ', '_').lower()}.csv",
         mime="text/csv"
@@ -378,7 +378,7 @@ with st.expander("📋 View Raw Data Sample"):
 # Sidebar - Current view info
 with st.sidebar:
     st.markdown("---")
-    st.markdown("### 📊 Current View")
+    st.markdown("###  Current View")
     st.markdown(f"**Showing:** {len(df):,} crashes")
     st.markdown(f"**Source:** {data_source}")
     if date_filter:

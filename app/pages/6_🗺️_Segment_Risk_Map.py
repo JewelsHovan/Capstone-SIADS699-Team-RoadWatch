@@ -30,7 +30,7 @@ HPMS_FILE = BASE_DIR / "data" / "silver" / "texas" / "roadway" / "hpms_texas_202
 ML_DATASETS_DIR = BASE_DIR / "data" / "gold" / "ml_datasets" / "segment_level"
 
 # Title
-st.markdown('<h1 class="main-header">🗺️ Road Segment Risk Assessment</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">Road Segment Risk Assessment</h1>', unsafe_allow_html=True)
 st.markdown("""
 <div style='text-align: center; font-size: 1.1rem; color: #7f8c8d; margin-bottom: 2rem;'>
     <b>Infrastructure Planning Tool</b> | Identify high-risk road segments for proactive safety improvements
@@ -41,7 +41,7 @@ st.markdown("---")
 
 # Sidebar: Model selection and parameters
 with st.sidebar:
-    st.markdown("## 🤖 Model Settings")
+    st.markdown("## Model Settings")
     st.markdown("---")
 
     st.markdown("### Model Type")
@@ -79,7 +79,7 @@ with st.sidebar:
     show_feature_values = st.checkbox("Show Feature Values", value=True)
 
     st.markdown("---")
-    st.markdown("### ℹ️ About")
+    st.markdown("### About")
     st.markdown("""
     This tool predicts crash risk for road segments based on:
     - Speed limit
@@ -91,11 +91,11 @@ with st.sidebar:
 
 
 # Main content tabs
-tab1, tab2, tab3 = st.tabs(["🗺️ Risk Map", "📊 Analysis", "📋 Recommendations"])
+tab1, tab2, tab3 = st.tabs(["Risk Map", "Analysis", "Recommendations"])
 
 with tab1:
     st.markdown("### Select Area of Interest")
-    st.info("👇 Draw a box or polygon on the map to select an area for risk assessment")
+    st.info(" Draw a box or polygon on the map to select an area for risk assessment")
 
     # Create map with drawing tools
     m = folium.Map(
@@ -189,7 +189,7 @@ with tab1:
                                 hpms['lanes_x_aadt'] = hpms['through_lanes'] * hpms['aadt']
 
                             # Simple baseline prediction (replace with trained model)
-                            st.info("🔮 Using baseline prediction model (demo). Replace with trained model for production.")
+                            st.info(" Using baseline prediction model (demo). Replace with trained model for production.")
 
                             # Baseline heuristic: Higher risk = high speed + high AADT + many lanes
                             hpms['predicted_risk'] = (
@@ -235,7 +235,7 @@ with tab1:
                              f"{high_count/len(hpms)*100:.1f}%")
 
                 # Create risk map
-                st.markdown("### 🗺️ Risk Map with Color-Coded Segments")
+                st.markdown("### Risk Map with Color-Coded Segments")
 
                 risk_map = folium.Map(
                     location=[(bbox['north'] + bbox['south'])/2, (bbox['east'] + bbox['west'])/2],
@@ -278,7 +278,7 @@ with tab1:
                 st_folium(risk_map, width=900, height=600, key="risk_results_map")
 
                 # Top 10 highest risk segments
-                st.markdown("### 🚨 Top 10 Highest Risk Segments")
+                st.markdown("### Top 10 Highest Risk Segments")
                 top_10 = hpms.nlargest(10, 'predicted_risk')[[
                     'segment_id', 'predicted_risk', 'risk_level',
                     'speed_limit', 'through_lanes', 'aadt', 'f_system'
@@ -295,19 +295,19 @@ with tab1:
                 # Download options
                 st.markdown("---")
                 st.download_button(
-                    label="📥 Download Risk Assessment (CSV)",
+                    label="Download Risk Assessment (CSV)",
                     data=hpms[['segment_id', 'predicted_risk', 'risk_level', 'speed_limit',
                               'through_lanes', 'aadt', 'f_system']].to_csv(index=False),
                     file_name="segment_risk_assessment.csv",
                     mime="text/csv"
                 )
         else:
-            st.info("👆 Draw an area on the map to start risk assessment")
+            st.info(" Draw an area on the map to start risk assessment")
     else:
-        st.info("👆 Draw an area on the map to start risk assessment")
+        st.info(" Draw an area on the map to start risk assessment")
 
 with tab2:
-    st.markdown("### 📊 Risk Analysis")
+    st.markdown("### Risk Analysis")
 
     # Check if we have processed data in session state
     if 'hpms' in st.session_state:
@@ -390,7 +390,7 @@ with tab2:
         st.info("Select an area in the Risk Map tab to see analysis")
 
 with tab3:
-    st.markdown("### 📋 Safety Recommendations")
+    st.markdown("### Safety Recommendations")
 
     # Check if we have processed data in session state
     if 'hpms' in st.session_state:
@@ -405,7 +405,7 @@ with tab3:
             if len(high_speed) > 0:
                 st.markdown(f"""
                 <div class="warning-box">
-                <h4>🚦 Speed Limit Reduction</h4>
+                <h4>Speed Limit Reduction</h4>
                 <p><b>{len(high_speed)} segments</b> have speed limits > 55 mph and high predicted risk.</p>
                 <p><b>Recommendation:</b> Consider reducing speed limits by 5-10 mph on these segments.</p>
                 </div>
@@ -416,7 +416,7 @@ with tab3:
             if len(high_traffic) > 0:
                 st.markdown(f"""
                 <div class="warning-box">
-                <h4>🚧 Congestion Management</h4>
+                <h4>Congestion Management</h4>
                 <p><b>{len(high_traffic)} segments</b> have very high traffic (>50K AADT) and high risk.</p>
                 <p><b>Recommendation:</b> Implement intelligent traffic management, add lanes, or improve signalization.</p>
                 </div>
@@ -427,7 +427,7 @@ with tab3:
             if len(narrow) > 0:
                 st.markdown(f"""
                 <div class="warning-box">
-                <h4>🛣️ Capacity Expansion</h4>
+                <h4>Capacity Expansion</h4>
                 <p><b>{len(narrow)} segments</b> have ≤2 lanes and high risk.</p>
                 <p><b>Recommendation:</b> Evaluate feasibility of adding lanes or creating bypass routes.</p>
                 </div>
@@ -436,7 +436,7 @@ with tab3:
             # Infrastructure improvements
             st.markdown("""
             <div class="info-box">
-            <h4>🔧 General Infrastructure Improvements</h4>
+            <h4>General Infrastructure Improvements</h4>
             <ul>
                 <li>Improve road surface quality (reduce IRI)</li>
                 <li>Add or improve shoulders</li>
@@ -451,7 +451,7 @@ with tab3:
             # Enforcement recommendations
             st.markdown("""
             <div class="success-box">
-            <h4>👮 Enforcement Priorities</h4>
+            <h4>Enforcement Priorities</h4>
             <ul>
                 <li>Increase patrol presence on high-risk segments</li>
                 <li>Deploy speed cameras in top 10 highest risk areas</li>

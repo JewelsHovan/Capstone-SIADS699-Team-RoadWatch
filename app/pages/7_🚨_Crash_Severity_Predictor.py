@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).parent.parent.parent
 HPMS_FILE = BASE_DIR / "data" / "silver" / "texas" / "roadway" / "hpms_texas_2023.gpkg"
 
 # Title
-st.markdown('<h1 class="main-header">🚨 Real-Time Crash Severity Predictor</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">Real-Time Crash Severity Predictor</h1>', unsafe_allow_html=True)
 st.markdown("""
 <div style='text-align: center; font-size: 1.1rem; color: #7f8c8d; margin-bottom: 2rem;'>
     <b>Emergency Response Tool</b> | Predict crash severity in real-time to prioritize emergency response
@@ -39,7 +39,7 @@ st.markdown("---")
 
 # Sidebar: Instructions and settings
 with st.sidebar:
-    st.markdown("## 🚨 How to Use")
+    st.markdown("## How to Use")
     st.markdown("---")
 
     st.markdown("""
@@ -57,17 +57,17 @@ with st.sidebar:
     """)
 
     st.markdown("---")
-    st.markdown("### ⚡ Quick Presets")
+    st.markdown("### Quick Presets")
 
-    if st.button("🌧️ Rainy Rush Hour"):
+    if st.button("Rainy Rush Hour"):
         st.session_state['weather_preset'] = 'rainy_rush'
-    if st.button("🌙 Night Clear"):
+    if st.button("Night Clear"):
         st.session_state['weather_preset'] = 'night_clear'
-    if st.button("🌫️ Foggy Morning"):
+    if st.button("Foggy Morning"):
         st.session_state['weather_preset'] = 'foggy_morning'
 
     st.markdown("---")
-    st.markdown("### ℹ️ Model Info")
+    st.markdown("### Model Info")
     st.markdown("""
     **Trained on:** 371K crashes (2016-2020)
 
@@ -87,12 +87,12 @@ with st.sidebar:
 col_map, col_inputs = st.columns([1.2, 1])
 
 with col_map:
-    st.markdown("### 📍 Step 1: Select Crash Location")
+    st.markdown("### Step 1: Select Crash Location")
 
     # Button to drop/reset pin
     col_btn1, col_btn2 = st.columns([1, 1])
     with col_btn1:
-        if st.button("📍 Drop Pin at Center", use_container_width=True):
+        if st.button("Drop Pin at Center", use_container_width=True):
             # Get current map center or use default
             if 'crash_location' in st.session_state:
                 # Keep current location
@@ -103,14 +103,14 @@ with col_map:
                 st.session_state['location_updated'] = True
 
     with col_btn2:
-        if st.button("🗑️ Clear Pin", use_container_width=True):
+        if st.button("Clear Pin", use_container_width=True):
             if 'crash_location' in st.session_state:
                 del st.session_state['crash_location']
             if 'hpms_features' in st.session_state:
                 del st.session_state['hpms_features']
             st.rerun()
 
-    st.info("💡 **Tip:** Click on map OR use 'Drop Pin' button, then drag the pin to adjust location")
+    st.info(" **Tip:** Click on map OR use 'Drop Pin' button, then drag the pin to adjust location")
 
     # Create interactive map
     m = folium.Map(
@@ -226,7 +226,7 @@ with col_map:
                         lanes_str = f"{through_lanes:.0f}" if not pd.isna(through_lanes) else 'N/A'
                         aadt_str = f"{aadt:,.0f} vehicles/day" if not pd.isna(aadt) else 'N/A'
 
-                        st.markdown("#### 🛣️ Road Characteristics")
+                        st.markdown("#### Road Characteristics")
                         st.markdown(f"""
                         <div class="info-box">
                         <ul>
@@ -268,7 +268,7 @@ with col_map:
 
             road_type_str = road_type_map.get(features['f_system'], 'Unknown')
 
-            st.markdown("#### 🛣️ Road Characteristics")
+            st.markdown("#### Road Characteristics")
             st.markdown(f"""
             <div class="info-box">
             <ul>
@@ -282,16 +282,16 @@ with col_map:
             """, unsafe_allow_html=True)
 
     else:
-        st.info("👆 Click on map, use 'Drop Pin' button, or drag the pin to select crash location")
+        st.info(" Click on map, use 'Drop Pin' button, or drag the pin to select crash location")
 
 with col_inputs:
-    st.markdown("### ⚙️ Step 2: Enter Current Conditions")
+    st.markdown("### Step 2: Enter Current Conditions")
 
     # Apply presets if selected
     preset = st.session_state.get('weather_preset', None)
 
     # Time inputs
-    st.markdown("#### 🕐 Time")
+    st.markdown("#### Time")
     current_time = datetime.now()
 
     if preset == 'rainy_rush':
@@ -326,7 +326,7 @@ with col_inputs:
     is_rush_hour = 1 if (6 <= selected_time <= 9 or 16 <= selected_time <= 19) else 0
 
     # Weather inputs
-    st.markdown("#### 🌦️ Weather")
+    st.markdown("#### Weather")
 
     if preset == 'rainy_rush':
         weather = 'Rain'
@@ -377,9 +377,9 @@ with col_inputs:
 
 # Prediction section
 st.markdown("---")
-st.markdown("## 🔮 Step 3: Severity Prediction")
+st.markdown("## Step 3: Severity Prediction")
 
-if st.button("🚨 PREDICT CRASH SEVERITY", type="primary", use_container_width=True):
+if st.button("PREDICT CRASH SEVERITY", type="primary", use_container_width=True):
     if 'hpms_features' not in st.session_state or st.session_state['hpms_features'] is None:
         st.error("⚠️ Please select a crash location on the map first!")
     else:
@@ -522,13 +522,13 @@ if st.button("🚨 PREDICT CRASH SEVERITY", type="primary", use_container_width=
                 st.plotly_chart(fig, use_container_width=True)
 
                 # Confidence intervals
-                st.markdown("#### 📊 Prediction Breakdown")
+                st.markdown("####  Prediction Breakdown")
                 st.metric("High Severity Probability", f"{prob_high_severity*100:.1f}%")
                 st.metric("Low Severity Probability", f"{(1-prob_high_severity)*100:.1f}%")
 
             # Feature contributions
             st.markdown("---")
-            st.markdown("### 📊 Risk Factor Analysis")
+            st.markdown("### Risk Factor Analysis")
 
             risk_factors = []
             if adverse_weather:
@@ -566,7 +566,7 @@ if st.button("🚨 PREDICT CRASH SEVERITY", type="primary", use_container_width=
 
             # What-if analysis
             st.markdown("---")
-            st.markdown("### 🔄 What-If Analysis")
+            st.markdown("### What-If Analysis")
 
             col1, col2 = st.columns(2)
 
@@ -575,17 +575,17 @@ if st.button("🚨 PREDICT CRASH SEVERITY", type="primary", use_container_width=
                 better_risk = risk_score - (0.25 if adverse_weather else 0) - (0.20 if low_visibility else 0)
                 better_risk = np.clip(better_risk, 0, 1)
                 change = (better_risk - risk_score) * 100
-                st.metric("Severity Probability", f"{better_risk*100:.0f}%", f"{change:.0f}%")
+                st.metric("Severity Probability", f"{better_risk*100:.1f}%", f"{change:.1f}%")
 
             with col2:
                 st.markdown("#### If crash at 2 PM:")
                 day_risk = risk_score - (0.15 if (selected_time >= 22 or selected_time <= 4) else 0)
                 day_risk = np.clip(day_risk, 0, 1)
                 change = (day_risk - risk_score) * 100
-                st.metric("Severity Probability", f"{day_risk*100:.0f}%", f"{change:.0f}%")
+                st.metric("Severity Probability", f"{day_risk*100:.1f}%", f"{change:.1f}%")
 
 else:
-    st.info("👆 Click the button above to predict crash severity")
+    st.info(" Click the button above to predict crash severity")
 
 # Footer
 st.markdown("---")
