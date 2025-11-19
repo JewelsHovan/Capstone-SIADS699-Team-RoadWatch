@@ -1,8 +1,8 @@
 """
 Feature preprocessing utilities for ML models.
 
-This module contains all feature engineering and preprocessing logic
-used by both baseline and trained models.
+This module converts app features to the format expected by trained models.
+Matches the 32-feature schema from ml_engineering/preprocessing/feature_lists.py
 """
 
 import pandas as pd
@@ -27,49 +27,179 @@ def safe_numeric_convert(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def preprocess_crash_features(features: Dict[str, Any]) -> Dict[str, float]:
+def preprocess_crash_features(features: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Preprocess crash features for severity prediction.
+    Preprocess crash features for ML model prediction.
 
-    Expected features:
-    - hour: 0-23
-    - day_of_week: 0-6
-    - is_weekend: 0/1
-    - is_rush_hour: 0/1
-    - temperature: Fahrenheit
-    - visibility: Miles
-    - adverse_weather: 0/1
-    - low_visibility: 0/1
-    - speed_limit: MPH
-    - through_lanes: Count
-    - f_system: Functional class
-    - aadt: Annual Average Daily Traffic
+    Converts app features (12 simple features) to the 32 features expected by trained models.
+    Uses sensible defaults and derives categorical encodings for features not available in real-time.
+
+    Training Feature Schema (32 features):
+    - 22 numeric: temporal, weather, location, traffic/roadway
+    - 10 categorical: weather categories, location zones, road categories
 
     Args:
-        features: Raw feature dictionary
+        features: Raw feature dictionary from app
 
     Returns:
-        Preprocessed feature dictionary with all values as floats
+        Feature dictionary matching training schema (will be converted to DataFrame)
     """
     processed = {}
 
-    # Temporal features
-    processed['hour'] = safe_numeric_convert(features.get('hour', 12))
+    # ============================================================================
+    # TEMPORAL FEATURES (5 numeric)
+    # ============================================================================
+    hour = safe_numeric_convert(features.get('hour', 12))
+    processed['hour'] = hour
     processed['day_of_week'] = safe_numeric_convert(features.get('day_of_week', 0))
+    processed['month'] = safe_numeric_convert(features.get('month', 6))
     processed['is_weekend'] = safe_numeric_convert(features.get('is_weekend', 0))
     processed['is_rush_hour'] = safe_numeric_convert(features.get('is_rush_hour', 0))
 
-    # Weather features
-    processed['temperature'] = safe_numeric_convert(features.get('temperature', 70))
-    processed['visibility'] = safe_numeric_convert(features.get('visibility', 10))
+    # ============================================================================
+    # WEATHER FEATURES (7 numeric) - Use training feature names with (units)
+    # ============================================================================
+    temp_f = safe_numeric_convert(features.get('temperature', 70))
+    visibility_mi = safe_numeric_convert(features.get('visibility', 10))
+
+    processed['Temperature(F)'] = temp_f
+    processed['Visibility(mi)'] = visibility_mi
+    processed['Pressure(in)'] = safe_numeric_convert(features.get('pressure', 30.0))
+    processed['Humidity(%)'] = safe_numeric_convert(features.get('humidity', 60))
+    processed['Wind_Speed(mph)'] = safe_numeric_convert(features.get('wind_speed', 5))
     processed['adverse_weather'] = safe_numeric_convert(features.get('adverse_weather', 0))
     processed['low_visibility'] = safe_numeric_convert(features.get('low_visibility', 0))
 
-    # Roadway features
-    processed['speed_limit'] = safe_numeric_convert(features.get('speed_limit', 30))
-    processed['through_lanes'] = safe_numeric_convert(features.get('through_lanes', 2))
-    processed['f_system'] = safe_numeric_convert(features.get('f_system', 1))
-    processed['aadt'] = safe_numeric_convert(features.get('aadt', 10000))
+    # ============================================================================
+    # LOCATION FEATURES (6 numeric)
+    # ============================================================================
+    # Coordinates (used by older models, despite overfitting concerns)
+    lat = safe_numeric_convert(features.get('lat', 30.27))  # Austin default
+    lng = safe_numeric_convert(features.get('lng', -97.74))  # Austin default
+    processed['Start_Lat'] = lat
+    processed['Start_Lng'] = lng
+
+    # Urban/rural indicator (binary)
+    # Derive from urban_id if available, else from city_size_category
+    urban_id = features.get('urban_id', 0)
+    city_size = features.get('city_size_category', 'medium')
+    processed['is_urban'] = 1 if (urban_id and urban_id > 0) or city_size == 'large' else 0
+
+    processed['is_major_city'] = safe_numeric_convert(features.get('is_major_city', 0))
+    processed['is_junction'] = safe_numeric_convert(features.get('is_junction', 0))
+    processed['Distance(mi)'] = safe_numeric_convert(features.get('distance', 0.5))
+
+    # ============================================================================
+    # TRAFFIC & ROADWAY FEATURES (7 numeric) - From HPMS or user input
+    # ============================================================================
+    # Use HPMS features if available, otherwise use user-provided values or defaults
+    processed['aadt'] = safe_numeric_convert(
+        features.get('aadt', features.get('hpms_aadt', 15000))
+    )
+    processed['distance_to_aadt_m'] = safe_numeric_convert(
+        features.get('distance_to_aadt_m', 50)
+    )
+
+    # HPMS road characteristics (prefixed with hpms_)
+    processed['hpms_speed_limit'] = safe_numeric_convert(
+        features.get('hpms_speed_limit', features.get('speed_limit', 45))
+    )
+    processed['hpms_lanes'] = safe_numeric_convert(
+        features.get('hpms_lanes', features.get('through_lanes', 2))
+    )
+    processed['hpms_functional_class'] = safe_numeric_convert(
+        features.get('hpms_functional_class', features.get('f_system', 1))
+    )
+    processed['hpms_aadt'] = safe_numeric_convert(
+        features.get('hpms_aadt', processed['aadt'])
+    )
+    processed['hpms_distance_m'] = safe_numeric_convert(
+        features.get('hpms_distance_m', 50)
+    )
+
+    # ============================================================================
+    # CATEGORICAL FEATURES (10) - Derive from numeric features
+    # ============================================================================
+
+    # Weather category (clear, rain, snow, fog, cloudy)
+    if processed['adverse_weather'] == 1:
+        processed['weather_category'] = 'rain'
+    elif processed['low_visibility'] == 1:
+        processed['weather_category'] = 'fog'
+    else:
+        processed['weather_category'] = 'clear'
+
+    # Temperature category (freezing, cold, mild, warm, hot)
+    if temp_f < 32:
+        processed['temp_category'] = 'freezing'
+    elif temp_f < 50:
+        processed['temp_category'] = 'cold'
+    elif temp_f < 70:
+        processed['temp_category'] = 'mild'
+    elif temp_f < 85:
+        processed['temp_category'] = 'warm'
+    else:
+        processed['temp_category'] = 'hot'
+
+    # Lat zone (south, south_central, central, north) - using lat/lng from above
+    if lat < 29:
+        processed['lat_zone'] = 'south'
+    elif lat < 31:
+        processed['lat_zone'] = 'south_central'
+    elif lat < 33:
+        processed['lat_zone'] = 'central'
+    else:
+        processed['lat_zone'] = 'north'
+
+    # Lng zone (west, west_central, central, east)
+    if lng < -100:
+        processed['lng_zone'] = 'west'
+    elif lng < -98:
+        processed['lng_zone'] = 'west_central'
+    elif lng < -96:
+        processed['lng_zone'] = 'central'
+    else:
+        processed['lng_zone'] = 'east'
+
+    # Region (combined lat_lng zone)
+    processed['region'] = f"{processed['lat_zone']}_{processed['lng_zone']}"
+
+    # City size category (large, medium, small)
+    processed['city_size_category'] = features.get('city_size_category', 'medium')
+
+    # County (top 20 counties by crash frequency + 'other')
+    processed['county_top20'] = features.get('county', 'other')
+
+    # Speed category (low, medium, high, highway)
+    speed = processed['hpms_speed_limit']
+    if speed < 35:
+        processed['speed_category'] = 'low'
+    elif speed < 50:
+        processed['speed_category'] = 'medium'
+    elif speed < 65:
+        processed['speed_category'] = 'high'
+    else:
+        processed['speed_category'] = 'highway'
+
+    # Lane category (narrow, standard, wide)
+    lanes = processed['hpms_lanes']
+    if lanes <= 1:
+        processed['lane_category'] = 'narrow'
+    elif lanes <= 3:
+        processed['lane_category'] = 'standard'
+    else:
+        processed['lane_category'] = 'wide'
+
+    # Road class (functional classification)
+    func_class = int(processed['hpms_functional_class'])
+    if func_class == 1:
+        processed['road_class'] = 'interstate'
+    elif func_class <= 3:
+        processed['road_class'] = 'principal_arterial'
+    elif func_class <= 5:
+        processed['road_class'] = 'minor_arterial'
+    else:
+        processed['road_class'] = 'collector'
 
     return processed
 
@@ -129,7 +259,12 @@ def create_feature_vector(
 
 
 def get_crash_feature_order() -> List[str]:
-    """Get expected feature order for crash severity model."""
+    """
+    Get expected feature order for crash severity model.
+
+    NOTE: This is for baseline model compatibility only.
+    Trained models use sklearn pipelines that handle feature ordering internally.
+    """
     return [
         'hour', 'day_of_week', 'is_weekend', 'is_rush_hour',
         'temperature', 'visibility', 'adverse_weather', 'low_visibility',

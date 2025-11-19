@@ -96,9 +96,10 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
 
     # Use trained model (sklearn pipeline with preprocessing built-in)
     try:
-        # Convert features dict to DataFrame (pipeline expects DataFrame input)
-        # The pipeline will handle all preprocessing internally
-        X = pd.DataFrame([features])
+        # Preprocess features to expand from 12 simple features to 32 model features
+        # Pipeline then handles categorical encoding and scaling
+        processed = preprocess_crash_features(features)
+        X = pd.DataFrame([processed])
 
         # Get probability predictions
         if hasattr(model, 'predict_proba'):
@@ -197,10 +198,10 @@ def baseline_crash_severity_prediction(features: Dict[str, float]) -> float:
     if features['is_weekend'] == 1 and (hour >= 22 or hour <= 4):  # Weekend night
         risk_score += 0.15
 
-    # Road risk
-    if features['speed_limit'] > 65:
+    # Road risk (using preprocessed feature names)
+    if features.get('hpms_speed_limit', 0) > 65:
         risk_score += 0.15
-    if features['aadt'] > 50000:  # High traffic
+    if features.get('aadt', 0) > 50000:  # High traffic
         risk_score += 0.10
 
     # Clip to valid probability range (no random noise for reproducibility)
