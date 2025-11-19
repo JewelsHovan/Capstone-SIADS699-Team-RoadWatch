@@ -51,7 +51,11 @@ from ml_engineering.evaluation import (
     find_optimal_threshold
 )
 
-from ml_engineering.models import train_xgboost_classifier
+from ml_engineering.models import (
+    train_xgboost_classifier,
+    train_catboost_classifier,
+    train_lightgbm_classifier
+)
 from ml_engineering.utils.tuning import tune_random_forest
 
 from sklearn.ensemble import RandomForestClassifier
@@ -554,11 +558,157 @@ def train_xgboost_tuned(X_train, y_train, X_val, y_val, X_test, y_test,
         print(f'  {param}: {value}')
 
 
+def train_catboost(X_train, y_train, X_val, y_val, X_test, y_test,
+                   numeric_features, categorical_features):
+    """Train CatBoost model"""
+    print(f'\n{"#"*70}')
+    print(f'# TRAINING CATBOOST')
+    print(f'{"#"*70}\n')
+
+    # Start experiment
+    start_experiment('crash_severity_prediction')
+
+    # Create pipeline
+    catboost_pipeline = create_crash_classifier_pipeline(
+        numeric_features=numeric_features,
+        categorical_features=categorical_features
+    )
+
+    # Preprocess data
+    print('Preprocessing data...')
+    catboost_pipeline.set_params(classifier='passthrough')
+    X_train_processed = catboost_pipeline.fit_transform(X_train, y_train)
+    X_val_processed = catboost_pipeline.transform(X_val)
+    X_test_processed = catboost_pipeline.transform(X_test)
+
+    # Train CatBoost (it handles categorical features natively, but we already one-hot encoded)
+    catboost_model, train_metrics = train_catboost_classifier(
+        X_train_processed, y_train,
+        X_val_processed, y_val,
+        iterations=1000,
+        depth=8,
+        learning_rate=0.05,
+        early_stopping_rounds=50,
+        verbose=100
+    )
+
+    # Put model in pipeline
+    catboost_pipeline.set_params(classifier=catboost_model)
+
+    # Calibrate
+    print('\nCalibrating probabilities...')
+    catboost_calibrated = calibrate_model(catboost_pipeline, X_val, y_val)
+
+    # Final test evaluation
+    test_metrics = evaluate_classifier(catboost_calibrated, X_test, y_test, name='Test Set')
+
+    # Save
+    artifact_path = save_model_artifact(
+        pipeline=catboost_calibrated,
+        feature_cols=numeric_features + categorical_features,
+        metrics=test_metrics,
+        model_name='catboost_calibrated'
+    )
+
+    # Log to MLflow
+    log_model_run(
+        experiment_name='crash_severity_prediction',
+        run_name='catboost_early_stopping',
+        params={
+            'model': 'CatBoost',
+            'iterations': 1000,
+            'depth': 8,
+            'learning_rate': 0.05,
+            'calibration': 'isotonic'
+        },
+        metrics=test_metrics,
+        model=catboost_calibrated,
+        tags={'type': 'boosting', 'calibrated': 'yes'}
+    )
+
+    print(f'\n{"="*70}')
+    print('✓ CATBOOST COMPLETE')
+    print(f'{"="*70}')
+
+
+def train_lightgbm(X_train, y_train, X_val, y_val, X_test, y_test,
+                   numeric_features, categorical_features):
+    """Train LightGBM model"""
+    print(f'\n{"#"*70}')
+    print(f'# TRAINING LIGHTGBM')
+    print(f'{"#"*70}\n')
+
+    # Start experiment
+    start_experiment('crash_severity_prediction')
+
+    # Create pipeline
+    lgbm_pipeline = create_crash_classifier_pipeline(
+        numeric_features=numeric_features,
+        categorical_features=categorical_features
+    )
+
+    # Preprocess data
+    print('Preprocessing data...')
+    lgbm_pipeline.set_params(classifier='passthrough')
+    X_train_processed = lgbm_pipeline.fit_transform(X_train, y_train)
+    X_val_processed = lgbm_pipeline.transform(X_val)
+    X_test_processed = lgbm_pipeline.transform(X_test)
+
+    # Train LightGBM
+    lgbm_model, train_metrics = train_lightgbm_classifier(
+        X_train_processed, y_train,
+        X_val_processed, y_val,
+        n_estimators=1000,
+        num_leaves=31,
+        learning_rate=0.05,
+        early_stopping_rounds=50,
+        verbose=100
+    )
+
+    # Put model in pipeline
+    lgbm_pipeline.set_params(classifier=lgbm_model)
+
+    # Calibrate
+    print('\nCalibrating probabilities...')
+    lgbm_calibrated = calibrate_model(lgbm_pipeline, X_val, y_val)
+
+    # Final test evaluation
+    test_metrics = evaluate_classifier(lgbm_calibrated, X_test, y_test, name='Test Set')
+
+    # Save
+    artifact_path = save_model_artifact(
+        pipeline=lgbm_calibrated,
+        feature_cols=numeric_features + categorical_features,
+        metrics=test_metrics,
+        model_name='lightgbm_calibrated'
+    )
+
+    # Log to MLflow
+    log_model_run(
+        experiment_name='crash_severity_prediction',
+        run_name='lightgbm_early_stopping',
+        params={
+            'model': 'LightGBM',
+            'n_estimators': 1000,
+            'num_leaves': 31,
+            'learning_rate': 0.05,
+            'calibration': 'isotonic'
+        },
+        metrics=test_metrics,
+        model=lgbm_calibrated,
+        tags={'type': 'boosting', 'calibrated': 'yes'}
+    )
+
+    print(f'\n{"="*70}')
+    print('✓ LIGHTGBM COMPLETE')
+    print(f'{"="*70}')
+
+
 def main():
     parser = argparse.ArgumentParser(description='Train crash prediction models with MLflow')
     parser.add_argument('--dataset', choices=['crash', 'segment'], default='crash',
                        help='Dataset to train on')
-    parser.add_argument('--model', choices=['baseline', 'xgboost', 'all'], default='baseline',
+    parser.add_argument('--model', choices=['baseline', 'xgboost', 'catboost', 'lightgbm', 'all'], default='baseline',
                        help='Which models to train')
     parser.add_argument('--tune', action='store_true',
                        help='Perform hyperparameter tuning')
@@ -596,8 +746,28 @@ def main():
                 numeric_features, categorical_features
             )
 
+    if args.model == 'catboost':
+        train_catboost(
+            X_train, y_train, X_val, y_val, X_test, y_test,
+            numeric_features, categorical_features
+        )
+
+    if args.model == 'lightgbm':
+        train_lightgbm(
+            X_train, y_train, X_val, y_val, X_test, y_test,
+            numeric_features, categorical_features
+        )
+
     if args.model == 'all':
         train_xgboost(
+            X_train, y_train, X_val, y_val, X_test, y_test,
+            numeric_features, categorical_features
+        )
+        train_catboost(
+            X_train, y_train, X_val, y_val, X_test, y_test,
+            numeric_features, categorical_features
+        )
+        train_lightgbm(
             X_train, y_train, X_val, y_val, X_test, y_test,
             numeric_features, categorical_features
         )

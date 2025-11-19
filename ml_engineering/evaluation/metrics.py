@@ -19,7 +19,7 @@ from sklearn.calibration import CalibratedClassifierCV, calibration_curve
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, roc_auc_score,
     confusion_matrix, classification_report, brier_score_loss,
-    roc_curve, precision_recall_curve
+    roc_curve, precision_recall_curve, average_precision_score
 )
 from typing import Dict, Any, Optional, Tuple
 import pandas as pd
@@ -60,9 +60,20 @@ def evaluate_classifier(
         'recall': recall_score(y, y_pred, zero_division=0),
         'f1': f1_score(y, y_pred, zero_division=0),
         'auc': roc_auc_score(y, y_proba),
+        'pr_auc': average_precision_score(y, y_proba),  # Better for imbalanced data
         'brier_score': brier_score_loss(y, y_proba),
         'threshold': threshold
     }
+
+    # Top-K precision (for top 10% predicted as high risk)
+    top_k_threshold = np.percentile(y_proba, 90)
+    top_k_mask = y_proba >= top_k_threshold
+    if top_k_mask.sum() > 0:
+        metrics['top10_precision'] = y[top_k_mask].mean()
+        metrics['top10_count'] = top_k_mask.sum()
+    else:
+        metrics['top10_precision'] = 0.0
+        metrics['top10_count'] = 0
 
     print(f'\nMetrics:')
     print(f'  Accuracy:     {metrics["accuracy"]:.4f}')
@@ -70,7 +81,9 @@ def evaluate_classifier(
     print(f'  Recall:       {metrics["recall"]:.4f}')
     print(f'  F1 Score:     {metrics["f1"]:.4f}')
     print(f'  AUC-ROC:      {metrics["auc"]:.4f}')
+    print(f'  PR-AUC:       {metrics["pr_auc"]:.4f} (better for imbalanced)')
     print(f'  Brier Score:  {metrics["brier_score"]:.4f} (lower is better)')
+    print(f'  Top-10% Precision: {metrics["top10_precision"]:.4f} ({metrics["top10_count"]:,} samples)')
 
     # Confusion matrix
     cm = confusion_matrix(y, y_pred)
@@ -106,7 +119,7 @@ def evaluate_regressor(
     Returns:
         Dict of metrics
     """
-    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, mean_absolute_percentage_error
+    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, mean_absolute_percentage_error, mean_poisson_deviance
 
     print(f'\n{"="*70}')
     print(f'EVALUATION: {name}')
@@ -123,12 +136,37 @@ def evaluate_regressor(
         'mape': mean_absolute_percentage_error(y, y_pred) if (y != 0).all() else None
     }
 
+    # Poisson deviance (better than R² for count data)
+    try:
+        # Ensure predictions are positive for Poisson deviance
+        y_pred_positive = np.maximum(y_pred, 1e-10)
+        metrics['poisson_deviance'] = mean_poisson_deviance(y, y_pred_positive)
+    except:
+        metrics['poisson_deviance'] = None
+
+    # Top-K enrichment (for top 10% predicted risk)
+    top_k_threshold = np.percentile(y_pred, 90)
+    top_k_mask = y_pred >= top_k_threshold
+    if top_k_mask.sum() > 0:
+        top_k_actual_mean = y[top_k_mask].mean()
+        overall_mean = y.mean()
+        metrics['top10_enrichment'] = top_k_actual_mean / overall_mean if overall_mean > 0 else 0
+        metrics['top10_actual_mean'] = top_k_actual_mean
+        metrics['top10_count'] = int(top_k_mask.sum())
+    else:
+        metrics['top10_enrichment'] = 0.0
+        metrics['top10_actual_mean'] = 0.0
+        metrics['top10_count'] = 0
+
     print(f'\nMetrics:')
     print(f'  RMSE: {metrics["rmse"]:.4f}')
     print(f'  MAE:  {metrics["mae"]:.4f}')
     print(f'  R²:   {metrics["r2"]:.4f}')
+    if metrics["poisson_deviance"] is not None:
+        print(f'  Poisson Deviance: {metrics["poisson_deviance"]:.4f} (better for count data)')
     if metrics["mape"] is not None:
         print(f'  MAPE: {metrics["mape"]:.2f}%')
+    print(f'  Top-10% Enrichment: {metrics["top10_enrichment"]:.2f}x (mean: {metrics["top10_actual_mean"]:.2f} vs overall: {y.mean():.2f})')
 
     # Prediction statistics
     print(f'\nPredictions:')

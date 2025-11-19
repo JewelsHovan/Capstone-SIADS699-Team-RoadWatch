@@ -13,11 +13,15 @@ pandera>=0.17.0
 # Gradient boosting
 xgboost>=2.0.0
 lightgbm>=4.1.0
+catboost>=1.2.0
 
 # Core ML (should already be installed)
 scikit-learn>=1.3.0
 numpy>=1.24.0
 pandas>=2.0.0
+
+# Statistical models (for zero-inflated Poisson)
+statsmodels>=0.14.0
 
 # Progress bars
 tqdm>=4.65.0

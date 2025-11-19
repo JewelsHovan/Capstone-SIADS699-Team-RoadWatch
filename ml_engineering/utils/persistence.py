@@ -26,9 +26,28 @@ import joblib
 import json
 import mlflow
 import mlflow.sklearn
+import numpy as np
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
+
+
+def convert_to_serializable(obj):
+    """
+    Convert numpy types to native Python types for JSON serialization
+    """
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_to_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_to_serializable(item) for item in obj]
+    else:
+        return obj
 
 
 def save_model_artifact(
@@ -80,14 +99,14 @@ def save_model_artifact(
 
     model_type = type(model_obj).__name__
 
-    # Save metadata
+    # Save metadata (convert numpy types to native Python for JSON serialization)
     metadata = {
         'timestamp': timestamp,
         'model_name': model_name,
         'model_type': model_type,
         'feature_cols': feature_cols,
         'n_features': len(feature_cols),
-        'metrics': metrics,
+        'metrics': convert_to_serializable(metrics),  # Convert numpy types
         'run_id': run_id,
         'sklearn_version': joblib.__version__,
     }
@@ -104,8 +123,14 @@ def save_model_artifact(
         f.write(f"**Model**: {model_type}\n\n")
         f.write(f"**Features**: {len(feature_cols)}\n\n")
         f.write("## Metrics\n\n")
-        for metric_name, metric_value in metrics.items():
-            f.write(f"- {metric_name}: {metric_value:.4f}\n")
+        # Convert metrics to native Python types for proper formatting
+        serializable_metrics = convert_to_serializable(metrics)
+        for metric_name, metric_value in serializable_metrics.items():
+            # Format numeric values, skip non-numeric
+            if isinstance(metric_value, (int, float)):
+                f.write(f"- {metric_name}: {metric_value:.4f}\n")
+            else:
+                f.write(f"- {metric_name}: {metric_value}\n")
         f.write("\n## Usage\n\n")
         f.write("```python\n")
         f.write("from ml_engineering.utils.persistence import load_model_artifact\n\n")
