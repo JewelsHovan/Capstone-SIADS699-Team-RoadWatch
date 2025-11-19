@@ -77,17 +77,15 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
     Predict crash severity using trained model
 
     Args:
-        model: Trained model object (or None for baseline)
+        model: Trained model object (sklearn pipeline) or None for baseline
         features: Dictionary of feature values
 
     Returns:
         Dictionary with prediction results
     """
-    # Preprocess features
-    processed = preprocess_crash_features(features)
-
     if model is None:
         # Baseline heuristic prediction
+        processed = preprocess_crash_features(features)
         risk_score = baseline_crash_severity_prediction(processed)
         return {
             'probability_high_severity': risk_score,
@@ -96,22 +94,20 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
             'model_type': 'baseline'
         }
 
-    # Use trained model
+    # Use trained model (sklearn pipeline with preprocessing built-in)
     try:
-        # Create feature vector in correct order
-        feature_vector = create_feature_vector(
-            processed,
-            get_crash_feature_order()
-        )
+        # Convert features dict to DataFrame (pipeline expects DataFrame input)
+        # The pipeline will handle all preprocessing internally
+        X = pd.DataFrame([features])
 
         # Get probability predictions
         if hasattr(model, 'predict_proba'):
-            proba = model.predict_proba(feature_vector.reshape(1, -1))[0]
+            proba = model.predict_proba(X)[0]
             prob_low = proba[0]
             prob_high = proba[1]
         else:
             # Model doesn't support probabilities, use decision function or predict
-            pred = model.predict(feature_vector.reshape(1, -1))[0]
+            pred = model.predict(X)[0]
             prob_high = pred if pred <= 1.0 else 1.0
             prob_low = 1 - prob_high
 
@@ -125,6 +121,7 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
     except Exception as e:
         st.error(f"Prediction error: {e}")
         # Fall back to baseline
+        processed = preprocess_crash_features(features)
         risk_score = baseline_crash_severity_prediction(processed)
         return {
             'probability_high_severity': risk_score,
@@ -139,7 +136,7 @@ def predict_segment_risk(model, segment_features: pd.DataFrame) -> np.ndarray:
     Predict crash risk for road segments using trained model
 
     Args:
-        model: Trained model object (or None for baseline)
+        model: Trained model object (sklearn pipeline) or None for baseline
         segment_features: DataFrame with segment features
 
     Returns:
@@ -149,22 +146,10 @@ def predict_segment_risk(model, segment_features: pd.DataFrame) -> np.ndarray:
         # Baseline heuristic prediction
         return baseline_segment_risk_prediction(segment_features)
 
-    # Use trained model
+    # Use trained model (sklearn pipeline with preprocessing built-in)
     try:
-        # Get feature order
-        feature_cols = get_segment_feature_order()
-
-        # Preprocess each row and create feature matrix
-        processed_features = []
-        for _, row in segment_features.iterrows():
-            processed = preprocess_segment_features(row.to_dict())
-            feature_vector = create_feature_vector(processed, feature_cols)
-            processed_features.append(feature_vector)
-
-        X = np.array(processed_features)
-
-        # Predict
-        predictions = model.predict(X)
+        # Pipeline expects DataFrame input and handles preprocessing internally
+        predictions = model.predict(segment_features)
 
         # Ensure predictions are non-negative for count data
         predictions = np.maximum(predictions, 0)
