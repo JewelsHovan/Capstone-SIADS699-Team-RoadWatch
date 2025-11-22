@@ -106,3 +106,5 @@ models/artifacts/
 # Compressed files
 *.zip
 *.tar.gz
+models/catboost_info/
+catboost_info/

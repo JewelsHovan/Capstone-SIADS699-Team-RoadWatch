@@ -93,6 +93,7 @@ def train_catboost_classifier(
         'auto_class_weights': 'Balanced',  # Handle class imbalance
         'random_seed': 42,
         'verbose': verbose,
+        'train_dir': 'models/catboost_info',  # Store logs in models/ instead of project root
         **kwargs
     }
 
@@ -193,6 +194,7 @@ def train_catboost_regressor(
         'early_stopping_rounds': early_stopping_rounds,
         'random_seed': 42,
         'verbose': verbose,
+        'train_dir': 'models/catboost_info',  # Store logs in models/ instead of project root
         **kwargs
     }
 
