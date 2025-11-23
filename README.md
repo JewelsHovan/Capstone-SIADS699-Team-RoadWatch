@@ -106,6 +106,87 @@ The Streamlit application provides 7 interactive pages:
 
 ---
 
+## Team Contributions
+
+This project comprises two complementary analysis tracks developed in collaboration.
+
+### Julien Hovan - Crash Severity Prediction System
+
+**Objective**: Real-time crash severity prediction for emergency response prioritization.
+
+**Infrastructure**:
+- Production data pipeline (`data_engineering/`)
+- ML training pipeline (`ml_engineering/`)
+- Streamlit application (`app/`)
+
+**Data**:
+- 466,190 Texas crashes (2016-2022)
+- 5 integrated data sources (crashes, AADT, HPMS, weather, work zones)
+- 67 engineered features
+- Temporal split: train (2016-2020), test (2022)
+
+**Machine Learning**:
+- Models: Logistic Regression (baseline), Random Forest (production), XGBoost
+- Best Model: Random Forest with isotonic calibration
+- Performance: AUC=0.93, F1=0.67, Recall=0.81
+- Experiment Tracking: MLflow with 40+ runs
+
+**Key Features**:
+1. Traffic volume (AADT): 53% importance
+2. Road characteristics (lanes, speed limit): 30% importance
+3. Temporal factors (hour, rush hour): 10% importance
+4. Weather conditions: 7% importance
+
+**Deliverables**:
+- Interactive Streamlit dashboard with 7 pages
+- Trained models with metadata (`models/artifacts/`)
+- Publication-ready analysis figures
+- Real-time prediction API (<200ms latency)
+
+### Deepthi Kurup - Work Zone Location Risk Analysis
+
+**Objective**: Identify work zones located in historically high-crash road segments to prioritize safety resource allocation.
+
+**Infrastructure**:
+- Data processing scripts (`deepthi-src/`)
+- Research notebooks (`notebooks/deepthi/`)
+- Model outputs and visualizations (`deepthi-data/`)
+
+**Data**:
+- 1,653 active work zones (TxDOT WZDx, April 2024)
+- 19,178 historical crashes within 1km of work zones (2016-2023)
+- 338,556 crash-work zone spatial associations
+- 14 aggregated features per work zone
+
+**Machine Learning**:
+- Models: Logistic Regression, Random Forest, XGBoost, Stacking Ensemble
+- Best Model: Stacking Ensemble (Random Forest + XGBoost + Logistic meta-learner)
+- Performance: AUC=0.986, F1=0.754
+- Data Leakage Detection: Identified and removed leaked features (crash_count, avg_severity)
+- Validation: GroupKFold, temporal split, permutation tests
+
+**Key Features**:
+1. Average temperature: 31% importance
+2. Average wind speed: 23% importance
+3. Average visibility: 15% importance
+4. Average distance to work zone: 27% importance
+5. Work zone duration: 4% importance
+
+**Deliverables**:
+- 12 sequential Jupyter notebooks documenting complete workflow
+- Trained ensemble models (`deepthi-data/models/`)
+- Interactive Texas maps with geographic hotspots (DFW, San Antonio, El Paso)
+- Feature importance analysis with SHAP explainability
+- MLflow experiment tracking
+
+**Methodology**:
+Spatial analysis linking 2024 active work zones with 2016-2023 historical crash data to identify work zones in locations with high historical crash density. This approach models location-based risk rather than work zone-specific crash causation.
+
+**Limitation**:
+Due to temporal mismatch between work zone data (2024) and crash data (2016-2023), this analysis cannot measure work zone-specific crash impact. Instead, it identifies inherently dangerous road segments where work zones require enhanced safety measures.
+
+---
+
 ## Project Structure
 
 ```
@@ -114,49 +195,83 @@ Capstone/
 ├── FINAL_REPORT_OUTLINE.md            # Comprehensive project report
 ├── requirements.txt                   # Python dependencies
 │
-├── app/                               # Streamlit application
+├── app/                               # Streamlit application (Julien)
 │   ├── Home.py                        # Application entry point
 │   ├── config.py                      # Application configuration
 │   ├── pages/                         # Interactive pages (7 files)
 │   └── utils/                         # Visualization utilities
 │
-├── data/                              # Data pipeline (medallion architecture)
+├── data/                              # Data pipeline - medallion architecture (Julien)
 │   ├── bronze/                        # Raw data (crashes, AADT, HPMS)
 │   ├── silver/                        # Cleaned and validated data
 │   └── gold/                          # ML-ready datasets
 │       └── ml_datasets/
 │           └── crash_level/           # 466K crashes, train/test splits
 │
-├── data_engineering/                  # Data processing pipeline
+├── data_engineering/                  # Data processing pipeline (Julien)
 │   ├── download/                      # Data collection scripts
 │   ├── clean/                         # Data cleaning
 │   ├── features/                      # Feature engineering
 │   ├── datasets/                      # ML dataset builders
 │   └── integrate/                     # Spatial integration (HPMS, AADT)
 │
-├── ml_engineering/                    # Machine learning pipeline
+├── ml_engineering/                    # Machine learning pipeline (Julien)
 │   ├── models/                        # Model training scripts
 │   ├── preprocessing/                 # Data preprocessing
 │   ├── evaluation/                    # Model evaluation metrics
 │   └── utils/                         # ML utilities
 │
-├── models/                            # Trained models
+├── models/                            # Trained models (Julien)
 │   └── artifacts/                     # Model artifacts with metadata
 │       ├── logistic_regression_*/     # Baseline model
 │       ├── random_forest_*/           # Best model (AUC=0.93)
 │       └── xgboost_*/                 # Gradient boosting model
 │
-├── analysis/                          # Analysis and reporting
+├── analysis/                          # Analysis and reporting (Julien)
 │   ├── exploratory/                   # EDA scripts and figures
 │   └── reports/                       # Report figures (publication-ready)
 │       └── figures/                   # 5 final figures
 │
-├── mlruns/                            # MLflow experiment tracking
-├── outputs/                           # Generated outputs
+├── deepthi-src/                       # Work zone analysis code (Deepthi)
+│   ├── data/                          # Data cleaning and spatial integration
+│   ├── features/                      # Feature aggregation
+│   └── utils/                         # MLflow utilities
+│
+├── deepthi-data/                      # Work zone analysis outputs (Deepthi)
+│   ├── models/                        # Trained ensemble models (3.8 MB)
+│   │   ├── ensemble_model_dedup_final.pkl
+│   │   ├── xgb_final_calibrated.pkl
+│   │   └── workzone_features.csv      # 1,653 work zones, 14 features
+│   ├── processed/                     # Merged datasets (67 MB)
+│   │   └── workzone_crash_merged.csv  # 338K crash-workzone pairs
+│   └── figures/                       # Visualizations (2.5 MB)
+│       ├── fig_texas_overview.html    # Statewide work zone map
+│       ├── fig_geo_hotspots.html      # Geographic hotspot analysis
+│       ├── XGBoost_Final_roc.png      # Model ROC curves
+│       └── FeatureImportance_RF_Final.png
+│
+├── notebooks/                         # Jupyter notebooks
+│   ├── deepthi/                       # Work zone analysis workflow (Deepthi)
+│   │   ├── 01_data_cleanup.ipynb
+│   │   ├── 02_baseline_modeling_workzone.ipynb
+│   │   ├── 03_unsupervised_clustering.ipynb
+│   │   ├── 04_hyperparameter_optimization.ipynb
+│   │   ├── 05_evaluation.ipynb
+│   │   ├── 06_model_validation.ipynb
+│   │   ├── 07_feature_regularization_deduplicate.ipynb
+│   │   ├── 08_regularization_comparison.ipynb
+│   │   ├── 09_retuning_caliberation.ipynb
+│   │   ├── 10_Random Forest_XGBoost_Ensemble_Modeling.ipynb
+│   │   ├── 11_model_packaging_and_deployment.ipynb
+│   │   └── 12_visualization.ipynb
+│   └── load_datasets_from_gdrive.ipynb (Julien)
+│
+├── mlruns/                            # MLflow experiment tracking (Both)
+├── outputs/                           # Generated outputs (Julien)
 │   ├── maps/                          # Interactive HTML maps
 │   └── visualizations/                # Analysis plots
 │
-└── config/                            # Project configuration
+└── config/                            # Project configuration (Julien)
     └── paths.py                       # Centralized path management
 ```
 
@@ -184,13 +299,17 @@ Capstone/
 - **Features**: Temperature, visibility, precipitation, wind speed, pressure
 - **Temporal Resolution**: Nearest observation to crash timestamp
 
-### 5. Work Zones (Context)
+### 5. Work Zones
 - **Source**: TxDOT Real-Time Work Zone Feed (WZDx format)
-- **Status**: Used for context and visualization (not directly integrated due to temporal mismatch)
+- **Coverage**: 1,653 active work zones (April 2024)
+- **Application (Julien)**: Context and visualization in Streamlit app
+- **Application (Deepthi)**: Spatial analysis with historical crash data for location risk assessment
 
 ---
 
 ## Machine Learning Pipeline
+
+This section describes Julien's crash severity prediction pipeline. For Deepthi's work zone location risk analysis pipeline, see Team Contributions section and `notebooks/deepthi/` workflow.
 
 ### Data Processing
 
@@ -319,22 +438,39 @@ For every 1,000 crashes:
 
 ## Limitations
 
+### Crash Severity Prediction (Julien)
+
 1. **Geographic Scope**: Texas only (features are transferable to other states)
-2. **Work Zone Temporal Mismatch**: Real-time feed vs. historical crash data
-3. **Urban Bias**: 70% of crashes in 5 urban counties
-4. **HPMS Completeness**: 12.8-58.6% spatial match rates
-5. **Severity Definition Change**: Texas reporting system updated in 2021
+2. **Urban Bias**: 70% of crashes in 5 urban counties
+3. **HPMS Completeness**: 12.8-58.6% spatial match rates
+4. **Severity Definition Change**: Texas reporting system updated in 2021
+
+### Work Zone Location Risk Analysis (Deepthi)
+
+1. **Temporal Mismatch**: Work zone data from 2024, crash data from 2016-2023. Analysis identifies location-based risk rather than work zone-specific crash causation.
+2. **Spatial Approximation**: 1km radius spatial join may associate crashes not directly influenced by work zone proximity.
+3. **Data Deduplication**: Reduced dataset from 1,653 to 219 unique work zones after deduplication, limiting sample size.
+4. **Model Performance**: XGBoost AUC=0.999 suggests potential overfitting despite regularization efforts.
 
 ---
 
 ## Future Work
 
+### Crash Severity Prediction (Julien)
+
 1. **Multi-State Expansion**: Validate model on California and New York data
-2. **Historical Work Zone Integration**: If TxDOT archives become available
-3. **Traffic Slowdown Prediction**: Integrate real-time traffic sensor data
-4. **Operational Deployment**: API integration with 911 dispatch systems
-5. **Explainability**: SHAP values for instance-level predictions
-6. **Continuous Learning**: Automated monthly retraining pipeline
+2. **Traffic Slowdown Prediction**: Integrate real-time traffic sensor data
+3. **Operational Deployment**: API integration with 911 dispatch systems
+4. **Explainability**: SHAP values for instance-level predictions
+5. **Continuous Learning**: Automated monthly retraining pipeline
+
+### Work Zone Location Risk Analysis (Deepthi)
+
+1. **Historical Work Zone Data**: Obtain 2016-2023 TxDOT work zone archives to enable temporal matching with crash data
+2. **Causal Analysis**: Compare crash rates with vs. without work zone presence to quantify work zone-specific impact
+3. **Feature Expansion**: Incorporate work zone characteristics (type, lane closures, duration) beyond location-based features
+4. **Model Deployment**: Integrate work zone risk model into TxDOT planning tools for safety resource allocation
+5. **Temporal Validation**: Prospective study collecting crash data during active work zone periods for true predictive validation
 
 ---
 
