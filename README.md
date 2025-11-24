@@ -36,16 +36,32 @@ This project develops a machine learning system to predict crash severity in rea
 - 5 integrated data sources (crashes, AADT, HPMS, weather, work zones)
 - 67 engineered features
 
-## Installation
+## Quick Start
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# 1. Setup environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -e .
 
-# Start application
-streamlit run app/Home.py
-# Opens at http://localhost:8501
+# 2. Setup data directories
+PYTHONPATH=. python scripts/setup_data_directories.py
+
+# 3. Verify data (requires data files, see DATA_ACQUISITION.md)
+PYTHONPATH=. python scripts/verify_data.py
+
+# 4. Run data pipeline
+PYTHONPATH=. python scripts/run_pipeline.py --sample 10000  # Sample mode
+PYTHONPATH=. python scripts/run_pipeline.py  # Full pipeline
+
+# 5. Train models
+PYTHONPATH=. python -m ml_engineering.train_with_mlflow --dataset crash --model all
+
+# 6. Launch application
+streamlit run app/Home.py  # Opens at http://localhost:8501
 ```
+
+See `SETUP_GUIDE.md` for complete setup instructions and `DATA_ACQUISITION.md` for data source information.
 
 ## Application Features
 
@@ -121,10 +137,11 @@ See `PROJECT_STRUCTURE.md` for detailed structure.
 ## Data Sources
 
 1. **Crash Data**: Kaggle US Accidents Dataset (466,190 Texas crashes, 2016-2022)
-2. **Traffic Volume**: TxDOT AADT Stations (44,160 monitoring stations statewide)
-3. **Road Infrastructure**: HPMS 2023 (speed limits, lanes, functional classification)
-4. **Weather Data**: NOAA and crowdsourced APIs (temperature, visibility, precipitation, wind)
-5. **Work Zones**: TxDOT WZDx Feed (1,653 active work zones, April 2024)
+2. **Road Infrastructure**: HPMS Texas 2023 (971K road segments with AADT, speed limits, lanes, functional classification)
+3. **Weather Data**: NOAA and crowdsourced APIs (temperature, visibility, precipitation, wind)
+4. **Work Zones**: TxDOT WZDx Feed (1,653 active work zones, April 2024)
+
+See `DATA_ACQUISITION.md` for detailed data acquisition instructions.
 
 ## Machine Learning Pipeline
 

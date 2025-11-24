@@ -19,14 +19,10 @@ DATA_ROOT = PROJECT_ROOT / "data"
 # Bronze Layer: Raw, immutable data (as downloaded)
 BRONZE = DATA_ROOT / "bronze"
 BRONZE_TEXAS = BRONZE / "texas"
-BRONZE_CALIFORNIA = BRONZE / "california"
-BRONZE_NEW_YORK = BRONZE / "new_york"
 
 # Silver Layer: Cleaned, validated, standardized
 SILVER = DATA_ROOT / "silver"
 SILVER_TEXAS = SILVER / "texas"
-SILVER_CALIFORNIA = SILVER / "california"
-SILVER_NEW_YORK = SILVER / "new_york"
 
 # Gold Layer: Business-level aggregates, ML-ready datasets
 GOLD = DATA_ROOT / "gold"
@@ -107,18 +103,18 @@ REPORTS = OUTPUTS_ROOT / "reports"
 def ensure_directories():
     """Create all necessary directories if they don't exist"""
 
-    # Bronze layer directories
+    # Bronze layer directories (Texas only)
     bronze_dirs = [
         BRONZE,
-        BRONZE_TEXAS, BRONZE_CALIFORNIA, BRONZE_NEW_YORK,
+        BRONZE_TEXAS,
         TEXAS_BRONZE_CRASHES, TEXAS_BRONZE_WORKZONES,
         TEXAS_BRONZE_TRAFFIC, TEXAS_BRONZE_WEATHER
     ]
 
-    # Silver layer directories
+    # Silver layer directories (Texas only)
     silver_dirs = [
         SILVER,
-        SILVER_TEXAS, SILVER_CALIFORNIA, SILVER_NEW_YORK,
+        SILVER_TEXAS,
         TEXAS_SILVER_ROADWAY, TEXAS_SILVER_WORKZONES,
         TEXAS_SILVER_TRAFFIC, TEXAS_SILVER_WEATHER
     ]
