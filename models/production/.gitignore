@@ -1,0 +1,4 @@
+
+# Production model symlinks (exclude from git, but keep README)
+models/production/*/
+!models/production/README.md

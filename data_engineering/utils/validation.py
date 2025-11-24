@@ -57,12 +57,6 @@ crash_level_schema = pa.DataFrameSchema(
         'Visibility(mi)': Column(float, Check.greater_than_or_equal_to(0), nullable=True),
         'adverse_weather': Column(int, Check.isin([0, 1]), nullable=True),
 
-        # Location
-        'Start_Lat': Column(float, Check.in_range(25, 37), nullable=False,
-                           description='Texas latitude range'),
-        'Start_Lng': Column(float, Check.in_range(-107, -93), nullable=False,
-                           description='Texas longitude range'),
-
         # Categorical (string type)
         'weather_category': Column(
             str,
