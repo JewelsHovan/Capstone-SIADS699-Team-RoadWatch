@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import PAGE_CONFIG, CUSTOM_CSS, TEXAS_CENTER, HPMS_TEXAS_2023
 from utils.hpms_loader import load_hpms_for_location, get_segment_at_location
+from utils.model_loader import load_crash_severity_model, predict_crash_severity
 import plotly.graph_objects as go
 
 # Page configuration
@@ -67,20 +68,50 @@ with st.sidebar:
         st.session_state['weather_preset'] = 'foggy_morning'
 
     st.markdown("---")
+    st.markdown("### Model Selection")
+
+    model_choice = st.selectbox(
+        "Select Model",
+        options=["catboost_best_balanced", "random_forest_best_recall", "lightgbm_best_auc"],
+        format_func=lambda x: {
+            "catboost_best_balanced": "CatBoost (Best F1)",
+            "random_forest_best_recall": "Random Forest (Best Recall)",
+            "lightgbm_best_auc": "LightGBM (Best AUC)"
+        }[x],
+        index=0
+    )
+    st.session_state['selected_model'] = model_choice
+
+    # Load the selected model
+    model, metadata = load_crash_severity_model(model_choice)
+    st.session_state['model'] = model
+    st.session_state['model_metadata'] = metadata
+
     st.markdown("### Model Info")
-    st.markdown("""
-    **Trained on:** 371K crashes (2016-2020)
+    if metadata:
+        metrics = metadata.get('metrics', {})
+        st.markdown(f"""
+    **Model:** {metadata.get('model_name', 'Unknown')}
+
+    **Performance:**
+    - AUC: {metrics.get('val_auc', metrics.get('auc', 'N/A')):.3f}
+    - Precision: {metrics.get('val_precision', metrics.get('precision', 'N/A')):.3f}
+    - Recall: {metrics.get('val_recall', metrics.get('recall', 'N/A')):.3f}
+    - F1: {metrics.get('val_f1', metrics.get('f1', 'N/A')):.3f}
+    - Threshold: {metrics.get('threshold', 0.5):.2f}
+
+    **Features:** {metadata.get('n_features', 'N/A')}
+    """)
+    else:
+        st.warning("Using baseline model")
+        st.markdown("""
+    **Model:** Baseline Heuristic
 
     **Features:**
     - Road characteristics (HPMS)
     - Weather conditions
     - Time of day/week
     - Traffic volume
-    - Location (urban/rural)
-
-    **Target:** High severity (≥3)
-
-    **Performance:** ROC-AUC ~0.75
     """)
 
 # Main content
@@ -92,7 +123,7 @@ with col_map:
     # Button to drop/reset pin
     col_btn1, col_btn2 = st.columns([1, 1])
     with col_btn1:
-        if st.button("Drop Pin at Center", use_container_width=True):
+        if st.button("Drop Pin at Center", width='stretch'):
             # Get current map center or use default
             if 'crash_location' in st.session_state:
                 # Keep current location
@@ -103,7 +134,7 @@ with col_map:
                 st.session_state['location_updated'] = True
 
     with col_btn2:
-        if st.button("Clear Pin", use_container_width=True):
+        if st.button("Clear Pin", width='stretch'):
             if 'crash_location' in st.session_state:
                 del st.session_state['crash_location']
             if 'hpms_features' in st.session_state:
@@ -373,7 +404,7 @@ with col_inputs:
 st.markdown("---")
 st.markdown("## Step 3: Severity Prediction")
 
-if st.button("PREDICT CRASH SEVERITY", type="primary", use_container_width=True):
+if st.button("PREDICT CRASH SEVERITY", type="primary", width='stretch'):
     if 'hpms_features' not in st.session_state or st.session_state['hpms_features'] is None:
         st.error("⚠️ Please select a crash location on the map first!")
     else:
@@ -396,36 +427,16 @@ if st.button("PREDICT CRASH SEVERITY", type="primary", use_container_width=True)
                 **st.session_state['hpms_features']
             }
 
-            # DEMO: Simple heuristic model (replace with trained model)
-            # Higher risk factors: adverse weather, low visibility, high speed, rush hour, weekend night
-            risk_score = 0.0
+            # Get model from session state
+            model = st.session_state.get('model')
+            metadata = st.session_state.get('model_metadata')
 
-            # Weather risk
-            if adverse_weather:
-                risk_score += 0.25
-            if low_visibility:
-                risk_score += 0.20
+            # Run prediction using trained model (or baseline fallback)
+            prediction_result = predict_crash_severity(model, features, metadata)
 
-            # Time risk
-            if selected_time >= 22 or selected_time <= 4:  # Night
-                risk_score += 0.15
-            if is_rush_hour:
-                risk_score += 0.10
-            if is_weekend and (selected_time >= 22 or selected_time <= 4):  # Weekend night
-                risk_score += 0.15
-
-            # Road risk
-            if features['speed_limit'] > 65:
-                risk_score += 0.15
-            if features['aadt'] > 50000:  # High traffic
-                risk_score += 0.10
-
-            # Add some randomness for demo
-            risk_score += np.random.normal(0, 0.1)
-            risk_score = np.clip(risk_score, 0, 1)
-
-            # Convert to probability
-            prob_high_severity = risk_score
+            prob_high_severity = prediction_result['probability_high_severity']
+            threshold = prediction_result.get('threshold', 0.5)
+            model_type = prediction_result.get('model_type', 'unknown')
 
             # Display results
             st.markdown("---")
@@ -513,7 +524,7 @@ if st.button("PREDICT CRASH SEVERITY", type="primary", use_container_width=True)
                     }
                 ))
                 fig.update_layout(height=300)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
                 # Confidence intervals
                 st.markdown("####  Prediction Breakdown")
@@ -554,7 +565,7 @@ if st.button("PREDICT CRASH SEVERITY", type="primary", use_container_width=True)
                     yaxis_title='',
                     height=300
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             else:
                 st.success("✓ No significant risk factors identified")
 
@@ -566,16 +577,22 @@ if st.button("PREDICT CRASH SEVERITY", type="primary", use_container_width=True)
 
             with col1:
                 st.markdown("#### If weather was clear:")
-                better_risk = risk_score - (0.25 if adverse_weather else 0) - (0.20 if low_visibility else 0)
-                better_risk = np.clip(better_risk, 0, 1)
-                change = (better_risk - risk_score) * 100
+                clear_features = features.copy()
+                clear_features['adverse_weather'] = 0
+                clear_features['low_visibility'] = 0
+                clear_result = predict_crash_severity(model, clear_features, metadata)
+                better_risk = clear_result['probability_high_severity']
+                change = (better_risk - prob_high_severity) * 100
                 st.metric("Severity Probability", f"{better_risk*100:.1f}%", f"{change:.1f}%")
 
             with col2:
                 st.markdown("#### If crash at 2 PM:")
-                day_risk = risk_score - (0.15 if (selected_time >= 22 or selected_time <= 4) else 0)
-                day_risk = np.clip(day_risk, 0, 1)
-                change = (day_risk - risk_score) * 100
+                day_features = features.copy()
+                day_features['hour'] = 14
+                day_features['is_rush_hour'] = 0
+                day_result = predict_crash_severity(model, day_features, metadata)
+                day_risk = day_result['probability_high_severity']
+                change = (day_risk - prob_high_severity) * 100
                 st.metric("Severity Probability", f"{day_risk*100:.1f}%", f"{change:.1f}%")
 
 else:
@@ -583,9 +600,22 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("""
+model_name = st.session_state.get('selected_model', 'catboost_best_balanced')
+metadata = st.session_state.get('model_metadata')
+if metadata:
+    metrics = metadata.get('metrics', {})
+    auc = metrics.get('val_auc', metrics.get('auc', 'N/A'))
+    auc_str = f"{auc:.3f}" if isinstance(auc, (int, float)) else auc
+    st.markdown(f"""
 <div style='text-align: center; color: #95a5a6; margin-top: 2rem;'>
-    <p><b>Note:</b> This is a demo using a baseline model. In production, replace with trained ML model for accurate predictions.</p>
-    <p><b>Model:</b> Trained on 371K Texas crashes (2016-2020) | <b>Performance:</b> ROC-AUC ~0.75</p>
+    <p><b>Model:</b> {model_name} | <b>Features:</b> {metadata.get('n_features', 'N/A')} | <b>AUC:</b> {auc_str}</p>
+    <p>Trained on Texas crash data with MLflow tracking</p>
+</div>
+""", unsafe_allow_html=True)
+else:
+    st.markdown("""
+<div style='text-align: center; color: #95a5a6; margin-top: 2rem;'>
+    <p><b>Model:</b> Baseline Heuristic (No trained model found)</p>
+    <p>Run <code>python -m ml_engineering.train_with_mlflow --dataset crash</code> to train models</p>
 </div>
 """, unsafe_allow_html=True)

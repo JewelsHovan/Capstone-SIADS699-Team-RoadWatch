@@ -165,7 +165,7 @@ with tab2:
                 color_discrete_sequence=['#2ecc71', '#e74c3c']
             )
 
-            st.plotly_chart(fig_target, use_container_width=True)
+            st.plotly_chart(fig_target, width='stretch')
 
             # Class balance
             st.markdown(f"""
@@ -181,7 +181,7 @@ with tab2:
         with col2:
             # Detailed severity distribution
             fig_sev = create_severity_pie_chart(df, severity_col='Severity')
-            st.plotly_chart(fig_sev, use_container_width=True)
+            st.plotly_chart(fig_sev, width='stretch')
 
             # Severity stats
             sev_counts = df['Severity'].value_counts().sort_index()
@@ -221,7 +221,7 @@ with tab3:
             # Histogram
             if df[selected_feature].dtype in ['float64', 'int64']:
                 fig_hist = create_feature_histogram(df, selected_feature, bins=50)
-                st.plotly_chart(fig_hist, use_container_width=True)
+                st.plotly_chart(fig_hist, width='stretch')
             else:
                 # For categorical features, use value counts
                 value_counts = df[selected_feature].value_counts().head(20)
@@ -233,7 +233,7 @@ with tab3:
                     labels={'x': selected_feature, 'y': 'Count'}
                 )
 
-                st.plotly_chart(fig_cat, use_container_width=True)
+                st.plotly_chart(fig_cat, width='stretch')
 
         with col2:
             # Statistics
@@ -272,7 +272,7 @@ with tab3:
 
             fig_box = create_box_plot(df, 'high_severity', selected_feature,
                                       title=f'{selected_feature} by High Severity')
-            st.plotly_chart(fig_box, use_container_width=True)
+            st.plotly_chart(fig_box, width='stretch')
 
     else:
         st.warning(f"No features available in {feature_category} category")
@@ -304,7 +304,7 @@ with tab4:
 
         # Create correlation heatmap
         fig_corr = create_correlation_heatmap(df, features=top_features)
-        st.plotly_chart(fig_corr, use_container_width=True)
+        st.plotly_chart(fig_corr, width='stretch')
 
         # Top correlations with target
         if 'high_severity' in df.columns:
@@ -352,10 +352,10 @@ with tab5:
         )
 
         fig_missing.update_layout(height=400, xaxis_tickangle=-45)
-        st.plotly_chart(fig_missing, use_container_width=True)
+        st.plotly_chart(fig_missing, width='stretch')
 
         # Missing data table
-        st.dataframe(missing_df, use_container_width=True, height=300)
+        st.dataframe(missing_df, width='stretch', height=300)
     else:
         st.success("No missing data found!")
 
@@ -387,13 +387,13 @@ with tab5:
         )
 
         fig_completeness.update_layout(height=400)
-        st.plotly_chart(fig_completeness, use_container_width=True)
+        st.plotly_chart(fig_completeness, width='stretch')
 
 st.markdown("---")
 
 # Data preview
 with st.expander(" View Data Sample"):
-    st.dataframe(df.head(100), use_container_width=True)
+    st.dataframe(df.head(100), width='stretch')
 
     # Download button
     csv = df.to_csv(index=False).encode('utf-8')

@@ -27,26 +27,49 @@ MODELS_DIR.mkdir(exist_ok=True)
 
 
 @st.cache_resource
-def load_crash_severity_model():
+def load_crash_severity_model(model_name: str = "catboost_best_balanced"):
     """
-    Load trained crash-level severity prediction model
+    Load trained crash-level severity prediction model from production artifacts
+
+    Args:
+        model_name: Name of production model to load. Options:
+            - "catboost_best_balanced" (default, best F1)
+            - "random_forest_best_recall" (best recall for emergency response)
+            - "lightgbm_best_auc" (best AUC)
 
     Returns:
-        Trained model object (sklearn/xgboost/etc.)
+        Tuple of (model, metadata) or (None, None) if not found
     """
-    model_path = MODELS_DIR / "crash_severity_model.pkl"
+    # Try production symlink first
+    production_path = MODELS_DIR / "production" / model_name / "pipeline.pkl"
+    metadata_path = MODELS_DIR / "production" / model_name / "metadata.json"
 
-    if not model_path.exists():
-        st.warning(f"⚠️ Trained model not found at {model_path}. Using baseline model.")
-        return None
+    # Fallback to legacy path
+    legacy_path = MODELS_DIR / "crash_severity_model.pkl"
 
-    try:
-        with open(model_path, 'rb') as f:
-            model = pickle.load(f)
-        return model
-    except Exception as e:
-        st.error(f"Error loading crash severity model: {e}")
-        return None
+    if production_path.exists():
+        try:
+            model = joblib.load(production_path)
+            metadata = None
+            if metadata_path.exists():
+                import json
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+            return model, metadata
+        except Exception as e:
+            st.error(f"Error loading crash severity model: {e}")
+            return None, None
+    elif legacy_path.exists():
+        try:
+            with open(legacy_path, 'rb') as f:
+                model = pickle.load(f)
+            return model, None
+        except Exception as e:
+            st.error(f"Error loading crash severity model: {e}")
+            return None, None
+    else:
+        st.warning(f"⚠️ Trained model not found. Using baseline model.")
+        return None, None
 
 
 @st.cache_resource
@@ -72,13 +95,14 @@ def load_segment_risk_model():
         return None
 
 
-def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
+def predict_crash_severity(model, features: Dict[str, Any], metadata: Optional[Dict] = None) -> Dict[str, float]:
     """
     Predict crash severity using trained model
 
     Args:
         model: Trained model object (sklearn pipeline) or None for baseline
         features: Dictionary of feature values
+        metadata: Optional model metadata (contains threshold, metrics, etc.)
 
     Returns:
         Dictionary with prediction results
@@ -91,8 +115,14 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
             'probability_high_severity': risk_score,
             'probability_low_severity': 1 - risk_score,
             'prediction': 'HIGH' if risk_score > 0.5 else 'LOW',
-            'model_type': 'baseline'
+            'model_type': 'baseline',
+            'threshold': 0.5
         }
+
+    # Get threshold from metadata if available
+    threshold = 0.5
+    if metadata and 'metrics' in metadata:
+        threshold = metadata['metrics'].get('threshold', 0.5)
 
     # Use trained model (sklearn pipeline with preprocessing built-in)
     try:
@@ -112,11 +142,14 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
             prob_high = pred if pred <= 1.0 else 1.0
             prob_low = 1 - prob_high
 
+        model_name = metadata.get('model_name', 'trained') if metadata else 'trained'
+
         return {
             'probability_high_severity': prob_high,
             'probability_low_severity': prob_low,
-            'prediction': 'HIGH' if prob_high > 0.5 else 'LOW',
-            'model_type': 'trained'
+            'prediction': 'HIGH' if prob_high >= threshold else 'LOW',
+            'model_type': model_name,
+            'threshold': threshold
         }
 
     except Exception as e:
@@ -128,7 +161,8 @@ def predict_crash_severity(model, features: Dict[str, Any]) -> Dict[str, float]:
             'probability_high_severity': risk_score,
             'probability_low_severity': 1 - risk_score,
             'prediction': 'HIGH' if risk_score > 0.5 else 'LOW',
-            'model_type': 'baseline_fallback'
+            'model_type': 'baseline_fallback',
+            'threshold': 0.5
         }
 
 

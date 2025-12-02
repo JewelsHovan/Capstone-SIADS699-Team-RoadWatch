@@ -156,7 +156,7 @@ with tab2:
         with col1:
             # Risk category distribution
             fig_risk = create_risk_distribution_chart(df, risk_col='risk_category')
-            st.plotly_chart(fig_risk, use_container_width=True)
+            st.plotly_chart(fig_risk, width='stretch')
 
         with col2:
             # Risk category stats
@@ -198,7 +198,7 @@ with tab2:
 
         with col1:
             fig_dist = create_feature_histogram(df, selected_target, bins=50)
-            st.plotly_chart(fig_dist, use_container_width=True)
+            st.plotly_chart(fig_dist, width='stretch')
 
         with col2:
             if 'risk_category' in df.columns:
@@ -210,7 +210,7 @@ with tab2:
                     color='risk_category',
                     color_discrete_map=RISK_COLORS
                 )
-                st.plotly_chart(fig_box, use_container_width=True)
+                st.plotly_chart(fig_box, width='stretch')
 
 with tab3:
     st.markdown("### Feature Analysis")
@@ -226,7 +226,7 @@ with tab3:
 
         with col1:
             fig_hist = create_feature_histogram(df, selected_feature, bins=50)
-            st.plotly_chart(fig_hist, use_container_width=True)
+            st.plotly_chart(fig_hist, width='stretch')
 
         with col2:
             st.markdown(f"### {selected_feature}")
@@ -266,7 +266,7 @@ with tab3:
                 range_color=[-1, 1]
             )
 
-            st.plotly_chart(fig_corr_bar, use_container_width=True)
+            st.plotly_chart(fig_corr_bar, width='stretch')
 
 with tab4:
     st.markdown("### Geographic Distribution")
@@ -310,7 +310,7 @@ with tab4:
         )
 
         fig_cities.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig_cities, use_container_width=True)
+        st.plotly_chart(fig_cities, width='stretch')
 
 with tab5:
     st.markdown("### Temporal Patterns")
@@ -337,7 +337,7 @@ with tab5:
                 markers=True
             )
 
-            st.plotly_chart(fig_temporal, use_container_width=True)
+            st.plotly_chart(fig_temporal, width='stretch')
 
         with col2:
             fig_severity = px.line(
@@ -348,7 +348,7 @@ with tab5:
                 markers=True
             )
 
-            st.plotly_chart(fig_severity, use_container_width=True)
+            st.plotly_chart(fig_severity, width='stretch')
 
         # Seasonality analysis
         if 'quarter' in df.columns:
@@ -364,7 +364,7 @@ with tab5:
                 labels={'quarter': 'Quarter', 'crash_count': 'Avg Crashes'}
             )
 
-            st.plotly_chart(fig_seasonal, use_container_width=True)
+            st.plotly_chart(fig_seasonal, width='stretch')
 
     else:
         st.warning("Temporal data not available")
@@ -373,7 +373,7 @@ st.markdown("---")
 
 # Data preview
 with st.expander("View Data Sample"):
-    st.dataframe(df.head(100), use_container_width=True)
+    st.dataframe(df.head(100), width='stretch')
 
     # Download button
     csv = df.to_csv(index=False).encode('utf-8')

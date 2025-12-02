@@ -297,7 +297,7 @@ with tab1:
 
                 st.dataframe(
                     top_10.style.background_gradient(subset=['Predicted Crashes'], cmap='Reds'),
-                    use_container_width=True
+                    width='stretch'
                 )
 
                 # Download options
@@ -336,7 +336,7 @@ with tab2:
             orientation='h',
             title='Feature Importance in Risk Prediction'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         # Risk distribution by road type
         st.markdown("#### Risk Distribution by Road Type")
@@ -362,7 +362,7 @@ with tab2:
                 labels={'value': 'Number of Segments', 'road_type_name': 'Road Type'},
                 color_discrete_map={'Low': '#27ae60', 'Medium': '#f39c12', 'High': '#e74c3c'}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
         # Risk vs AADT scatter - only show if we have variation in risk levels
         st.markdown("#### Risk vs Traffic Volume")
@@ -390,7 +390,7 @@ with tab2:
                 color_discrete_map=available_colors,
                 category_orders={'risk_level': available_categories}  # Use dynamic list
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("Not enough variation in risk levels to show scatter plot. All segments are in the same risk category.")
 

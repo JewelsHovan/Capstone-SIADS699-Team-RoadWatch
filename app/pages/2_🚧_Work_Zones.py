@@ -96,7 +96,7 @@ with tab2:
             )
 
             fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
     with col2:
         if 'road_name' in df.columns:
@@ -113,7 +113,7 @@ with tab2:
             )
 
             fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
     # Duration analysis
     if 'duration' in df.columns:
@@ -128,7 +128,7 @@ with tab2:
         )
 
         fig_duration.update_layout(height=400)
-        st.plotly_chart(fig_duration, use_container_width=True)
+        st.plotly_chart(fig_duration, width='stretch')
 
 with tab3:
     st.markdown("### Work Zones Data Table")
@@ -140,9 +140,9 @@ with tab3:
                     if col in df.columns]
 
     if display_cols:
-        st.dataframe(df[display_cols], use_container_width=True, height=600)
+        st.dataframe(df[display_cols], width='stretch', height=600)
     else:
-        st.dataframe(df, use_container_width=True, height=600)
+        st.dataframe(df, width='stretch', height=600)
 
     # Download button
     csv = df.to_csv(index=False).encode('utf-8')

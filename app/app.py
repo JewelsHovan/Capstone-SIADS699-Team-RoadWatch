@@ -274,7 +274,7 @@ with col2:
         yaxis_title='Record Count'
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 st.markdown("---")
 

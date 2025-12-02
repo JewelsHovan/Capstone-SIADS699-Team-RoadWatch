@@ -3,6 +3,24 @@
 **Author:** Julien Hovan
 **Project:** MADS Capstone - Crash Severity Prediction System
 
+## Prerequisites
+
+### macOS Users
+
+XGBoost requires OpenMP runtime. Install before running the ML pipeline:
+
+```bash
+brew install libomp
+```
+
+Without this, you'll get: `XGBoost Library (libxgboost.dylib) could not be loaded`
+
+### All Platforms
+
+- Python 3.10+
+- 4GB+ RAM (8GB recommended for full dataset)
+- ~5GB disk space for data files
+
 ## Quick Start
 
 For instructors with provided data files:

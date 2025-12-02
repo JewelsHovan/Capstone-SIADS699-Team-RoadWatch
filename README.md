@@ -38,6 +38,8 @@ This project develops a machine learning system to predict crash severity in rea
 
 ## Quick Start
 
+**macOS users:** Run `brew install libomp` first (required for XGBoost).
+
 ```bash
 # 1. Setup environment
 python -m venv venv

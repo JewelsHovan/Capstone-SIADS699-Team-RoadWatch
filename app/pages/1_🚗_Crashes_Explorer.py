@@ -174,7 +174,7 @@ with tab1:
                 title=f"Crashes Over Time ({freq})"
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
         with col2:
             st.markdown("###  Insights")
@@ -220,7 +220,7 @@ with tab1:
                 height=350
             )
 
-            st.plotly_chart(fig_hour, use_container_width=True)
+            st.plotly_chart(fig_hour, width='stretch')
 
     else:
         st.warning(f"Date column '{date_col}' not found in dataset")
@@ -249,7 +249,7 @@ with tab2:
             st.markdown("###  Top Counties by Crash Count")
 
             fig_county = create_county_bar_chart(df, county_col=county_col, top_n=15)
-            st.plotly_chart(fig_county, use_container_width=True)
+            st.plotly_chart(fig_county, width='stretch')
 
     else:
         st.warning("Geographic coordinates not found in dataset")
@@ -263,7 +263,7 @@ with tab3:
         with col1:
             # Severity pie chart
             fig_sev = create_severity_pie_chart(df, severity_col='Severity')
-            st.plotly_chart(fig_sev, use_container_width=True)
+            st.plotly_chart(fig_sev, width='stretch')
 
         with col2:
             # Severity statistics
@@ -308,7 +308,7 @@ with tab3:
                 height=400
             )
 
-            st.plotly_chart(fig_sev_hour, use_container_width=True)
+            st.plotly_chart(fig_sev_hour, width='stretch')
 
     else:
         st.warning("Severity data not available in this dataset")
@@ -331,7 +331,7 @@ with tab4:
         with col1:
             # Histogram
             fig_hist = create_feature_histogram(df, selected_feature, bins=50)
-            st.plotly_chart(fig_hist, use_container_width=True)
+            st.plotly_chart(fig_hist, width='stretch')
 
         with col2:
             # Statistics
@@ -355,7 +355,7 @@ with tab4:
             st.markdown(f"### {selected_feature} by Severity Level")
 
             fig_box = create_box_plot(df, 'Severity', selected_feature)
-            st.plotly_chart(fig_box, use_container_width=True)
+            st.plotly_chart(fig_box, width='stretch')
 
     else:
         st.warning("No numeric features available for distribution analysis")
@@ -364,7 +364,7 @@ st.markdown("---")
 
 # Data preview
 with st.expander(" View Raw Data Sample"):
-    st.dataframe(df.head(100), use_container_width=True)
+    st.dataframe(df.head(100), width='stretch')
 
     # Download button
     csv = df.to_csv(index=False).encode('utf-8')
