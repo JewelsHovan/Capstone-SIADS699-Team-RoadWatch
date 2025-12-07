@@ -1,0 +1,34 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+.venv
+venv
+env
+.env
+
+# IDE
+.vscode
+.idea
+
+# Data (loaded from GCS)
+data/
+models/
+
+# Misc
+*.log
+.DS_Store
+mlruns/
+catboost_info/
+*.ipynb
+docs/
+
+# Secrets (never include)
+*.json
+.streamlit/secrets.toml
+streamlit_secrets.toml
+mads-capstone-*.json
