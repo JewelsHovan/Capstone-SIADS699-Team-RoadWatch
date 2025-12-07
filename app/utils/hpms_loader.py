@@ -45,8 +45,12 @@ def load_hpms_full() -> gpd.GeoDataFrame:
                 f"Please ensure the file exists before running the app."
             )
 
-    with st.spinner("Loading HPMS roadway data (1.1 GB)..."):
-        hpms = gpd.read_file(file_path)
+    with st.spinner("Loading HPMS roadway data..."):
+        # Use read_parquet for .parquet files, read_file for others
+        if str(file_path).endswith('.parquet'):
+            hpms = gpd.read_parquet(file_path)
+        else:
+            hpms = gpd.read_file(file_path)
 
     # Ensure CRS is set to WGS84 (lat/lon)
     if hpms.crs is None:

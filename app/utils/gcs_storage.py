@@ -17,7 +17,7 @@ GCS_PATHS = {
     # Data files
     "kaggle_crashes": "kaggle_us_accidents_texas.csv",
     "work_zones": "texas_wzdx_feed.csv",
-    "hpms": "hpms_texas_2023.gpkg",
+    "hpms": "hpms_texas_2023.parquet",
 
     # ML datasets - crash level (using timestamped files from bucket)
     "crash_ml_train": "crash_level/train_20251129_085128.csv",
