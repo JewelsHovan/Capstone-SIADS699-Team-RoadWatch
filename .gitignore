@@ -108,3 +108,5 @@ models/artifacts/
 *.tar.gz
 models/catboost_info/
 catboost_info/
+working-tmp/
+mads-capstone-*.json

@@ -81,13 +81,24 @@ print(f'Saved {len(tx):,} Texas crashes')
 **Size:** 1.1GB
 **Format:** GeoPackage (spatial data)
 
-This file is provided to instructors as part of the project submission. It contains:
+This file contains:
+
 - 971,000+ Texas road segments
 - Road characteristics: speed limit, lanes, functional classification
 - AADT traffic counts (integrated from national HPMS)
 - Geometry (LineString) for spatial joins
 
-### Regenerating from National HPMS (Advanced)
+### Option A: Direct Download (Recommended)
+
+1. Download from Google Drive (Accessible to anyone from University of Michigan):
+   https://drive.google.com/file/d/1CQNea7fRKMghZpWlCf66fJwBYS4is4YC/view?usp=drive_link
+
+2. Place the file in:
+   ```
+   data/silver/texas/roadway/hpms_texas_2023.gpkg
+   ```
+
+### Option B: Regenerate from National HPMS (Advanced)
 
 This process requires downloading 14GB of national data and takes 2-3 hours.
 
@@ -100,6 +111,7 @@ This process requires downloading 14GB of national data and takes 2-3 hours.
    - Place in: `data/bronze/texas/HPMS2023.gdb`
 
 2. Extract Texas data
+
    ```bash
    python data_engineering/download/download_hpms_texas.py --file data/bronze/texas/HPMS2023.gdb
    ```
@@ -139,6 +151,7 @@ PYTHONPATH=. python scripts/verify_data.py
 ```
 
 Expected output:
+
 ```
 Kaggle crashes found: 466,190 rows
 HPMS Texas found: 971,244 road segments
@@ -163,12 +176,14 @@ streamlit run app/Home.py
 ## Data Citations
 
 **US Accidents Dataset:**
+
 ```
 Moosavi, Sobhan, Mohammad Hossein Samavatian, Srinivasan Parthasarathy,
 and Rajiv Ramnath. "A Countrywide Traffic Accident Dataset.", 2019.
 ```
 
 **HPMS Data:**
+
 ```
 U.S. Department of Transportation, Federal Highway Administration.
 Highway Performance Monitoring System (HPMS), 2023.
