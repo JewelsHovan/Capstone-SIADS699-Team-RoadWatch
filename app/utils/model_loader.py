@@ -1,6 +1,7 @@
 """
 ML Model Loading Utilities
 Handles loading and caching of trained models for predictions
+Supports both local files and Google Cloud Storage for deployment
 """
 
 import streamlit as st
@@ -17,13 +18,15 @@ from .preprocessing import (
     get_crash_feature_order,
     get_segment_feature_order
 )
+from .gcs_storage import is_cloud_deployment, download_model_files
 
 # Base paths
 BASE_DIR = Path(__file__).parent.parent.parent
 MODELS_DIR = BASE_DIR / "models"
 
-# Create models directory if it doesn't exist
-MODELS_DIR.mkdir(exist_ok=True)
+# Create models directory if it doesn't exist (only for local)
+if not is_cloud_deployment():
+    MODELS_DIR.mkdir(exist_ok=True)
 
 
 @st.cache_resource
@@ -40,7 +43,26 @@ def load_crash_severity_model(model_name: str = "catboost_best_balanced"):
     Returns:
         Tuple of (model, metadata) or (None, None) if not found
     """
-    # Try production symlink first
+    # Check if running in cloud deployment mode
+    if is_cloud_deployment():
+        pipeline_path, metadata_path = download_model_files(model_name)
+        if pipeline_path is None:
+            st.warning(f"⚠️ Could not download model from cloud. Using baseline model.")
+            return None, None
+
+        try:
+            model = joblib.load(pipeline_path)
+            metadata = None
+            if metadata_path and metadata_path.exists():
+                import json
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+            return model, metadata
+        except Exception as e:
+            st.error(f"Error loading crash severity model from cloud: {e}")
+            return None, None
+
+    # Local: Try production symlink first
     production_path = MODELS_DIR / "production" / model_name / "pipeline.pkl"
     metadata_path = MODELS_DIR / "production" / model_name / "metadata.json"
 

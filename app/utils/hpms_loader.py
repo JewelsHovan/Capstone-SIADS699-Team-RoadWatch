@@ -1,6 +1,7 @@
 """
 HPMS data loading utilities with caching and filtering.
 Eliminates duplicate loading logic across prediction pages.
+Supports both local files and Google Cloud Storage for deployment.
 """
 
 import streamlit as st
@@ -10,6 +11,7 @@ from typing import Optional, Tuple
 from shapely.geometry import box, Point
 
 from config import HPMS_TEXAS_2023
+from utils.gcs_storage import is_cloud_deployment, download_from_gcs
 
 
 @st.cache_resource
@@ -27,14 +29,24 @@ def load_hpms_full() -> gpd.GeoDataFrame:
     Raises:
         FileNotFoundError: If HPMS file doesn't exist
     """
-    if not HPMS_TEXAS_2023.exists():
-        raise FileNotFoundError(
-            f"HPMS file not found: {HPMS_TEXAS_2023}\n"
-            f"Please ensure the file exists before running the app."
-        )
+    # Check if running in cloud deployment mode
+    if is_cloud_deployment():
+        file_path = download_from_gcs("hpms")
+        if file_path is None:
+            raise FileNotFoundError(
+                "Failed to download HPMS file from cloud storage.\n"
+                "Please check GCS bucket configuration and permissions."
+            )
+    else:
+        file_path = HPMS_TEXAS_2023
+        if not file_path.exists():
+            raise FileNotFoundError(
+                f"HPMS file not found: {file_path}\n"
+                f"Please ensure the file exists before running the app."
+            )
 
     with st.spinner("Loading HPMS roadway data (1.1 GB)..."):
-        hpms = gpd.read_file(HPMS_TEXAS_2023)
+        hpms = gpd.read_file(file_path)
 
     # Ensure CRS is set to WGS84 (lat/lon)
     if hpms.crs is None:
@@ -42,7 +54,7 @@ def load_hpms_full() -> gpd.GeoDataFrame:
     elif hpms.crs != 'EPSG:4326':
         hpms = hpms.to_crs('EPSG:4326')
 
-    st.success(f"✅ Loaded {len(hpms):,} road segments from HPMS")
+    st.success(f"Loaded {len(hpms):,} road segments from HPMS")
 
     return hpms
 

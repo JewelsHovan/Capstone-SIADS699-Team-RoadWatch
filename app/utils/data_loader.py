@@ -1,6 +1,7 @@
 """
 Data loading utilities for Texas Crash Analysis Dashboard
 Handles loading and caching of all datasets with smart sampling
+Supports both local files and Google Cloud Storage for deployment
 """
 
 import pandas as pd
@@ -8,6 +9,8 @@ import streamlit as st
 from pathlib import Path
 from typing import Optional, Dict, Any
 import os
+
+from .gcs_storage import is_cloud_deployment, download_from_gcs
 
 # Base paths - using Medallion architecture (Bronze/Silver/Gold)
 BASE_DIR = Path(__file__).parent.parent.parent
@@ -39,7 +42,14 @@ def load_crash_data(sample_size: Optional[int] = None) -> pd.DataFrame:
     Returns:
         DataFrame with crash data
     """
-    file_path = RAW_DATA_DIR / "crashes" / "kaggle_us_accidents_texas.csv"
+    # Check if running in cloud deployment mode
+    if is_cloud_deployment():
+        file_path = download_from_gcs("kaggle_crashes")
+        if file_path is None:
+            st.error("Failed to download crash data from cloud storage")
+            return pd.DataFrame()
+    else:
+        file_path = RAW_DATA_DIR / "crashes" / "kaggle_us_accidents_texas.csv"
 
     if sample_size:
         # Read with sampling for performance
@@ -91,21 +101,42 @@ def load_austin_crashes(sample_size: Optional[int] = None) -> pd.DataFrame:
 @st.cache_data(ttl=3600)
 def load_work_zones() -> pd.DataFrame:
     """
-    Load work zones data with coordinates extracted from JSON
+    Load work zones data with coordinates extracted from JSON or CSV
 
     Returns:
         DataFrame with work zone data including lat/lon
     """
     import json
 
-    # Load from JSON to get coordinates
-    json_path = RAW_DATA_DIR / "workzones" / "texas_wzdx_feed.json"
+    # Check if running in cloud deployment mode
+    if is_cloud_deployment():
+        # GCS has CSV version
+        file_path = download_from_gcs("work_zones")
+        if file_path is None:
+            st.error("Failed to download work zones data from cloud storage")
+            return pd.DataFrame()
+        df = pd.read_csv(file_path)
 
-    with open(json_path, 'r') as f:
-        data = json.load(f)
+        # Parse geometry_multipoint if it's a string (from CSV)
+        if 'geometry_multipoint' in df.columns and df['geometry_multipoint'].dtype == object:
+            import ast
+            def parse_geom(x):
+                if pd.isna(x) or x == '':
+                    return None
+                try:
+                    return ast.literal_eval(x) if isinstance(x, str) else x
+                except Exception:
+                    return None
+            df['geometry_multipoint'] = df['geometry_multipoint'].apply(parse_geom)
+    else:
+        # Local: Load from JSON to get coordinates
+        json_path = RAW_DATA_DIR / "workzones" / "texas_wzdx_feed.json"
 
-    # Convert to DataFrame
-    df = pd.DataFrame(data)
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+
+        # Convert to DataFrame
+        df = pd.DataFrame(data)
 
     # Extract coordinates from geometry_multipoint
     def extract_coords(geom):
@@ -120,10 +151,11 @@ def load_work_zones() -> pd.DataFrame:
             return lat, lon
         return None, None
 
-    # Apply coordinate extraction
-    df[['beginning_latitude', 'beginning_longitude']] = df['geometry_multipoint'].apply(
-        lambda x: pd.Series(extract_coords(x))
-    )
+    # Apply coordinate extraction if geometry column exists and has dict values
+    if 'geometry_multipoint' in df.columns:
+        df[['beginning_latitude', 'beginning_longitude']] = df['geometry_multipoint'].apply(
+            lambda x: pd.Series(extract_coords(x))
+        )
 
     # Parse dates
     if 'start_date' in df.columns:
@@ -182,7 +214,15 @@ def load_crash_ml_dataset(split: str = 'train', sample_size: Optional[int] = Non
     Returns:
         DataFrame with crash-level ML data
     """
-    file_path = CRASH_LEVEL_ML / f"{split}_latest.csv"
+    # Check if running in cloud deployment mode
+    if is_cloud_deployment():
+        gcs_key = f"crash_ml_{split}"
+        file_path = download_from_gcs(gcs_key)
+        if file_path is None:
+            st.error(f"Failed to download crash ML {split} data from cloud storage")
+            return pd.DataFrame()
+    else:
+        file_path = CRASH_LEVEL_ML / f"{split}_latest.csv"
 
     if sample_size:
         df = pd.read_csv(file_path, nrows=sample_size, low_memory=False)
@@ -208,8 +248,16 @@ def load_segment_ml_dataset(split: str = 'train', sample_size: Optional[int] = N
     Returns:
         DataFrame with segment-level ML data
     """
-    # Segment files don't have 'segment_' prefix in gold layer
-    file_path = SEGMENT_LEVEL_ML / f"{split}_latest.csv"
+    # Check if running in cloud deployment mode
+    if is_cloud_deployment():
+        gcs_key = f"segment_ml_{split}"
+        file_path = download_from_gcs(gcs_key)
+        if file_path is None:
+            st.error(f"Failed to download segment ML {split} data from cloud storage")
+            return pd.DataFrame()
+    else:
+        # Segment files don't have 'segment_' prefix in gold layer
+        file_path = SEGMENT_LEVEL_ML / f"{split}_latest.csv"
 
     if sample_size:
         df = pd.read_csv(file_path, nrows=sample_size)
