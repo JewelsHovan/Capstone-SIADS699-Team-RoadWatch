@@ -19,11 +19,8 @@ from utils.data_loader import load_segment_ml_dataset
 from utils.visualizations import (
     create_risk_distribution_chart,
     create_correlation_heatmap,
-    create_feature_histogram,
-    create_time_series_with_trend
+    create_feature_histogram
 )
-from utils.map_utils import create_segment_map
-from streamlit_folium import st_folium
 
 # Page config
 st.set_page_config(**PAGE_CONFIG)
@@ -88,12 +85,10 @@ with col4:
 st.markdown("---")
 
 # Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3 = st.tabs([
     "Dataset Info",
     "Target Variables",
-    "Feature Analysis",
-    "Geographic View",
-    "Temporal Patterns"
+    "Feature Analysis"
 ])
 
 with tab1:
@@ -267,107 +262,6 @@ with tab3:
             )
 
             st.plotly_chart(fig_corr_bar, width='stretch')
-
-with tab4:
-    st.markdown("### Geographic Distribution")
-
-    if 'Start_Lat' in df.columns and 'Start_Lng' in df.columns and 'risk_category' in df.columns:
-        map_sample = st.slider(
-            "Map Sample Size",
-            min_value=100,
-            max_value=1000,
-            value=500,
-            help="Number of segments to show on map"
-        )
-
-        with st.spinner("Generating segment map..."):
-            m = create_segment_map(
-                df,
-                lat_col='Start_Lat',
-                lon_col='Start_Lng',
-                risk_col='risk_category',
-                max_points=map_sample
-            )
-
-            st_folium(m, width=1200, height=600, returned_objects=[])
-
-        st.info(f"Showing {map_sample} segments colored by risk level")
-
-    else:
-        st.warning("Geographic data not available")
-
-    # Geographic statistics
-    if 'City' in df.columns:
-        st.markdown("### Top Cities by Crash Count")
-
-        city_crashes = df.groupby('City')['crash_count'].sum().sort_values(ascending=False).head(15)
-
-        fig_cities = px.bar(
-            x=city_crashes.index,
-            y=city_crashes.values,
-            title='Top 15 Cities by Total Crashes',
-            labels={'x': 'City', 'y': 'Total Crashes'}
-        )
-
-        fig_cities.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig_cities, width='stretch')
-
-with tab5:
-    st.markdown("### Temporal Patterns")
-
-    if 'year_quarter' in df.columns and 'crash_count' in df.columns:
-        # Aggregate by time
-        temporal_agg = df.groupby('year_quarter').agg({
-            'crash_count': 'sum',
-            'severity_rate': 'mean',
-            'segment_id': 'nunique'
-        }).reset_index()
-
-        temporal_agg.columns = ['year_quarter', 'total_crashes', 'avg_severity_rate', 'num_segments']
-
-        # Crashes over time
-        col1, col2 = st.columns(2)
-
-        with col1:
-            fig_temporal = px.line(
-                temporal_agg,
-                x='year_quarter',
-                y='total_crashes',
-                title='Total Crashes by Quarter',
-                markers=True
-            )
-
-            st.plotly_chart(fig_temporal, width='stretch')
-
-        with col2:
-            fig_severity = px.line(
-                temporal_agg,
-                x='year_quarter',
-                y='avg_severity_rate',
-                title='Average Severity Rate by Quarter',
-                markers=True
-            )
-
-            st.plotly_chart(fig_severity, width='stretch')
-
-        # Seasonality analysis
-        if 'quarter' in df.columns:
-            st.markdown("### Seasonal Patterns")
-
-            seasonal = df.groupby('quarter')['crash_count'].mean().reset_index()
-
-            fig_seasonal = px.bar(
-                seasonal,
-                x='quarter',
-                y='crash_count',
-                title='Average Crashes by Quarter (Seasonality)',
-                labels={'quarter': 'Quarter', 'crash_count': 'Avg Crashes'}
-            )
-
-            st.plotly_chart(fig_seasonal, width='stretch')
-
-    else:
-        st.warning("Temporal data not available")
 
 st.markdown("---")
 

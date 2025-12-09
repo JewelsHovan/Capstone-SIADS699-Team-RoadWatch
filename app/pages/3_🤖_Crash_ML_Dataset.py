@@ -17,7 +17,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import PAGE_CONFIG, CUSTOM_CSS, CRASH_ML_FEATURES, DEFAULT_SAMPLE_SIZES
 from utils.data_loader import load_crash_ml_dataset
 from utils.visualizations import (
-    create_severity_pie_chart,
     create_correlation_heatmap,
     create_feature_histogram,
     create_box_plot
@@ -151,7 +150,7 @@ with tab1:
 with tab2:
     st.markdown("### Target Variable Analysis")
 
-    if 'high_severity' in df.columns and 'Severity' in df.columns:
+    if 'high_severity' in df.columns:
         col1, col2 = st.columns(2)
 
         with col1:
@@ -160,43 +159,42 @@ with tab2:
 
             fig_target = px.pie(
                 values=high_sev_counts.values,
-                names=['Low Severity (1-2)', 'High Severity (3-4)'],
-                title='Target Variable Distribution',
+                names=['Low Severity (0)', 'High Severity (1)'],
+                title='Target Variable Distribution (high_severity)',
                 color_discrete_sequence=['#2ecc71', '#e74c3c']
             )
 
-            st.plotly_chart(fig_target, width='stretch')
+            st.plotly_chart(fig_target, use_container_width=True)
 
-            # Class balance
+        with col2:
+            # Class balance stats
+            low_count = high_sev_counts.get(0, 0)
+            high_count = high_sev_counts.get(1, 0)
+            imbalance_ratio = low_count / high_count if high_count > 0 else 0
+
             st.markdown(f"""
             <div class="info-box">
-            <b>Class Balance:</b><br>
-            - Low Severity: {high_sev_counts.get(0, 0):,} ({high_sev_counts.get(0, 0)/len(df)*100:.1f}%)<br>
-            - High Severity: {high_sev_counts.get(1, 0):,} ({high_sev_counts.get(1, 0)/len(df)*100:.1f}%)<br>
+            <h4>Class Balance</h4>
+            <b>Low Severity (0):</b> {low_count:,} ({low_count/len(df)*100:.1f}%)<br>
+            <b>High Severity (1):</b> {high_count:,} ({high_count/len(df)*100:.1f}%)<br>
             <br>
-            <b>Imbalance Ratio:</b> {high_sev_counts.get(0, 0) / high_sev_counts.get(1, 1):.2f}:1
+            <b>Imbalance Ratio:</b> {imbalance_ratio:.2f}:1
             </div>
             """, unsafe_allow_html=True)
 
-        with col2:
-            # Detailed severity distribution
-            fig_sev = create_severity_pie_chart(df, severity_col='Severity')
-            st.plotly_chart(fig_sev, width='stretch')
-
-            # Severity stats
-            sev_counts = df['Severity'].value_counts().sort_index()
             st.markdown(f"""
             <div class="info-box">
-            <b>Severity Breakdown:</b><br>
-            - Level 1: {sev_counts.get(1, 0):,}<br>
-            - Level 2: {sev_counts.get(2, 0):,}<br>
-            - Level 3: {sev_counts.get(3, 0):,}<br>
-            - Level 4: {sev_counts.get(4, 0):,}
+            <h4>Target Definition</h4>
+            <ul>
+                <li><b>0 (Low)</b>: Severity levels 1-2</li>
+                <li><b>1 (High)</b>: Severity levels 3-4</li>
+            </ul>
+            <small>Binary classification target for ML models</small>
             </div>
             """, unsafe_allow_html=True)
 
     else:
-        st.warning("Target variables not found in dataset")
+        st.warning("Target variable 'high_severity' not found in dataset")
 
 with tab3:
     st.markdown("### Feature Distributions")
